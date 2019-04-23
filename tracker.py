@@ -1,3 +1,6 @@
+import os
+import datetime
+
 from confluent_kafka import Consumer, KafkaError
 from prometheus_client import start_http_server, Counter, Enum, Gauge, Histogram, Info
 from concurrent.futures import ThreadPoolExecutor
