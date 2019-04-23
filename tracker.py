@@ -46,7 +46,6 @@ logger = tracker_logging.initialize_logging()
 
 
 # Setup consumer
-# Setup consumer
 c = Consumer({
     'bootstrap.servers': BOOTSTRAP_SERVERS,
     'group.id': GROUP_ID,
@@ -60,16 +59,16 @@ _sigterm_received = False
 
 
 def start():
-	# Log env vars / settings
-	logger.info("Using LOG_LEVEL %s", LOG_LEVEL)
-	logger.info("Using BOOTSTRAP_SERVERS %s", BOOTSTRAP_SERVERS)
-	logger.info("Using GROUP_ID %s", GROUP_ID)
-	logger.info("Using THREAD_POOL_SIZE %s", THREAD_POOL_SIZE)
-	logger.info("Using PAYLOAD_TRACKER_TOPIC %s", PAYLOAD_TRACKER_TOPIC)
-	logger.info("Using DISABLE_PROMETHEUS %s", DISABLE_PROMETHEUS)
-	logger.info("Using PROMETHEUS_PORT %s", PROMETHEUS_PORT)
+    # Log env vars / settings
+    logger.info("Using LOG_LEVEL %s", LOG_LEVEL)
+    logger.info("Using BOOTSTRAP_SERVERS %s", BOOTSTRAP_SERVERS)
+    logger.info("Using GROUP_ID %s", GROUP_ID)
+    logger.info("Using THREAD_POOL_SIZE %s", THREAD_POOL_SIZE)
+    logger.info("Using PAYLOAD_TRACKER_TOPIC %s", PAYLOAD_TRACKER_TOPIC)
+    logger.info("Using DISABLE_PROMETHEUS %s", DISABLE_PROMETHEUS)
+    logger.info("Using PROMETHEUS_PORT %s", PROMETHEUS_PORT)
 
-	# start thread pool executor
+    # start thread pool executor
     logger.info("Starting thread pool executor.")
     executor = ThreadPoolExecutor(max_workers=int(THREAD_POOL_SIZE))
 
