@@ -18,7 +18,7 @@ DISABLE_PROMETHEUS = True if os.environ.get('DISABLE_PROMETHEUS') == "True" else
 PROMETHEUS_PORT = os.environ.get('PROMETHEUS_PORT', 8000)
 
 PAYLOAD_TRACKER_SERVICE_VERSION = Info(
-    'insights_advisor_service_version',
+    'payload_tracker_service_version',
     'Release and versioning information'
 )
 
@@ -42,7 +42,7 @@ PAYLOAD_TRACKER_SERVICE_VERSION.info({'build_name': BUILD_NAME,
                               'commit_url': COMMIT_URL})
 
 # Setup logging
-logger = advisor_logging.initialize_logging()
+logger = tracker_logging.initialize_logging()
 
 
 # Setup consumer
