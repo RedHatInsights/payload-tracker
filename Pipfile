@@ -1,0 +1,20 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[dev-packages]
+pytest = "*"
+coverage = "*"
+"flake8" = "*"
+pytest-mock = "*"
+pytest-cov = "*"
+"flake8-junit-report" = "*"
+
+[packages]
+confluent-kafka = "*"
+prometheus-client = "*"
+logstash-formatter = "*"
+
+[requires]
+python_version = "3.6"
