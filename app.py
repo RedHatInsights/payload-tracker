@@ -84,13 +84,13 @@ def process_payload_status(json_msg):
 
 def start():
     # Log env vars / settings
-    logger.info("Using LOG_LEVEL %s", LOG_LEVEL)
-    logger.info("Using BOOTSTRAP_SERVERS %s", BOOTSTRAP_SERVERS)
-    logger.info("Using GROUP_ID %s", GROUP_ID)
-    logger.info("Using THREAD_POOL_SIZE %s", THREAD_POOL_SIZE)
-    logger.info("Using PAYLOAD_TRACKER_TOPIC %s", PAYLOAD_TRACKER_TOPIC)
-    logger.info("Using DISABLE_PROMETHEUS %s", DISABLE_PROMETHEUS)
-    logger.info("Using PROMETHEUS_PORT %s", PROMETHEUS_PORT)
+    logger.info("Using LOG_LEVEL: %s", LOG_LEVEL)
+    logger.info("Using BOOTSTRAP_SERVERS: %s", BOOTSTRAP_SERVERS)
+    logger.info("Using GROUP_ID: %s", GROUP_ID)
+    logger.info("Using THREAD_POOL_SIZE: %s", THREAD_POOL_SIZE)
+    logger.info("Using PAYLOAD_TRACKER_TOPIC: %s", PAYLOAD_TRACKER_TOPIC)
+    logger.info("Using DISABLE_PROMETHEUS: %s", DISABLE_PROMETHEUS)
+    logger.info("Using PROMETHEUS_PORT: %s", PROMETHEUS_PORT)
 
     # start thread pool executor
     logger.info("Starting thread pool executor.")
@@ -106,7 +106,7 @@ def start():
 
     # Subscribe to our topics
     topic_subscriptions = [PAYLOAD_TRACKER_TOPIC]
-    logger.info("Subscribing to Kafka topics %s, %s" % (PAYLOAD_TRACKER_TOPIC))
+    logger.info("Subscribing to Kafka topics: %s" % (PAYLOAD_TRACKER_TOPIC))
     c.subscribe(topic_subscriptions)
     logger.info("Subscribed to topics.")
 
