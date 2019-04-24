@@ -5,6 +5,7 @@ import traceback
 from confluent_kafka import Consumer, KafkaError
 from prometheus_client import start_http_server, Counter, Enum, Gauge, Histogram, Info
 from concurrent.futures import ThreadPoolExecutor
+import insights_connexion.app as app
 
 import tracker_logging
 
@@ -78,8 +79,8 @@ def process_payload_status(json_msg):
         sanitized_payload_status['date'] = datetime.datetime.now()
 
     # insert into database
-    
-    
+
+
 
 def start():
     # Log env vars / settings
@@ -99,6 +100,9 @@ def start():
     if not DISABLE_PROMETHEUS:
         logger.info('Starting Payload Tracker Prometheus Server')
         submit_to_executor(executor, start_prometheus)
+
+    # start the API endpoint and database connections
+    submit_to_executor(executor, app.start)
 
     # Subscribe to our topics
     topic_subscriptions = [PAYLOAD_TRACKER_TOPIC]

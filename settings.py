@@ -9,9 +9,3 @@ DEV_LOG_MSG_FORMAT = "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(linen
             "[%(thread)d  %(threadName)s] [%(process)d] %(message)s"
 DEV_LOG_DATE_FORMAT = "%H:%M:%S"
 APP_NAME = "payload-tracker-service"
-
-# Database settings
-DB_USER = os.environ.get("DB_USER")
-DB_PASS = os.environ.get("DB_PASS")
-DB_HOST = os.environ.get("DB_HOST")
-DB_NAME = os.environ.get("DB_NAME")

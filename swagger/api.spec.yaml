@@ -1,0 +1,80 @@
+swagger: '2.0'
+info:
+  title: Insights Platform Payload Tracker API
+  description: A REST API to track payloads in the Insights Platform.
+  version: v1
+basePath: /v1
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /payload/{id}:
+    get:
+      description: ''
+      parameters: []
+      responses:
+        '200':
+          description: 'Get single payload successful response'
+          schema:
+            $ref: '#/definitions/PayloadRetrieve'
+        '404':
+            $ref: '#/responses/NotFound'
+      payloads:
+        - payloads
+    parameters:
+      - name: id
+        in: path
+        description: A unique value identifying this payload.
+        required: true
+        type: string
+responses:
+  NotFound:
+    description: The specified resource was not found
+    schema:
+      $ref: '#/definitions/Error'
+definitions:
+  Error:
+    type: object
+    properties:
+      message:
+        type: string
+    required:
+      - message
+  PayloadRetrieve:
+    required:
+      - payload_id
+    type: object
+    properties:
+      id:
+        title: Id
+        type: string
+      service:
+        title: Service
+        type: string
+      payload_id:
+        title: Payload ID
+        type: string
+        minLength: 1
+      inventory_id:
+        title: Inventory ID
+        type: string
+      system_id:
+        title: System ID
+        type: string
+      status:
+        title: Status
+        type: string
+      status_msg:
+        title: Status Message
+        type: string
+      date:
+        title: Status Date
+        type: string
+        format: date-time
+        readOnly: true
+      created_at:
+        title: Created at
+        type: string
+        format: date-time
+        readOnly: true
