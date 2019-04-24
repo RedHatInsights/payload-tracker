@@ -1,13 +1,13 @@
 import os
 import datetime
 import traceback
-import asyncio
 
 from aiokafka import AIOKafkaConsumer
 from kafkahelpers import ReconnectingClient
 from prometheus_client import start_http_server, Counter, Enum, Gauge, Histogram, Info
 from concurrent.futures import ThreadPoolExecutor
 import insights_connexion.app as app
+from insights_connexion.app import asyncio
 
 import tracker_logging
 
@@ -119,8 +119,7 @@ def start():
 
         # start the API endpoint and database connections
         logger.info('Starting Connexions App for REST API and Database.')
-        loop.create_task(app.start())
-        loop.run_forever()
+        app.start()
 
     except Exception:
         # Shut down loop
