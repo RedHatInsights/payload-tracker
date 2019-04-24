@@ -4,11 +4,12 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-confluent-kafka = "*"
 prometheus-client = "*"
 logstash-formatter = "*"
-connexion = {editable = true, ref = "body_middleware_fix", git = "git://github.com/fijshion/connexion.git"}
+connexion = {editable = true, ref = "d2249fb5c7eee30cef8adbe61bbb056837eb257b", git = "git://github.com/fijshion/connexion.git"}
 insights-connexion = {editable = true, ref = "aiohttp-validation", git = "git://github.com/RedHatInsights/insights_connexion.git"}
+aiokafka = "*"
+kafkahelpers = "*"
 
 [dev-packages]
 pytest = "*"

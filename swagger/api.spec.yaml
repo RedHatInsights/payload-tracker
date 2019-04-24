@@ -20,8 +20,6 @@ paths:
             $ref: '#/definitions/PayloadRetrieve'
         '404':
             $ref: '#/responses/NotFound'
-      payloads:
-        - payloads
     parameters:
       - name: id
         in: path
