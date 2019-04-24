@@ -37,9 +37,9 @@ def upgrade():
                     sa.Column('system_id', sa.String(), nullable=True),
                     sa.Column('status', sa.String(), nullable=True),
                     sa.Column('status_msg', sa.String(), nullable=True),
-                    sa.Column('date', sa.DateTime(), nullable=True)
+                    sa.Column('date', sa.DateTime(), nullable=True),
                     sa.Column('created_at', sa.DateTime(),
-                                    server_default=sa.text('now()'), nullable=True)
+                                    server_default=sa.text('now()'), nullable=True),
                     sa.PrimaryKeyConstraint('id')
                     )
 
