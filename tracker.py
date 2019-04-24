@@ -65,8 +65,8 @@ def process_payload_status(json_msg):
 
     # sanitize the payload status
     sanitized_payload_status = {
-        'service': json_msg['service']
-        'payload_id': json_msg['payload_id']
+        'service': json_msg['service'],
+        'payload_id': json_msg['payload_id'],
         'status': json_msg['status']
     }
     for key in ['inventory_id', 'system_id', 'status', 'status_msg']:
