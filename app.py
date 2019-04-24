@@ -63,10 +63,6 @@ kafka_consumer = AIOKafkaConsumer(
 CONSUMER = ReconnectingClient(kafka_consumer, "consumer")
 
 
-# Handle sigterms so process shuts down cleanly only after flushing messages to kafka
-_sigterm_received = False
-
-
 async def process_payload_status(json_msgs):
     for msg in json_msgs:
         logger.info(f"Processing payload status for {json_msg}")
@@ -124,19 +120,6 @@ def start():
     except Exception:
         # Shut down loop
         loop.stop()
-
-
-def submit_to_executor(executor, fn, *args, **kwargs):
-    future = executor.submit(fn, *args, **kwargs)
-    logger.info("Submitted to executor, future: %s", future)
-    future.add_done_callback(on_thread_done)
-
-
-def on_thread_done(future):
-    try:
-        future.result()
-    except Exception:
-        logger.exception("Future %s hit exception", future)
 
 
 def start_prometheus():
