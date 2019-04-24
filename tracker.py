@@ -1,5 +1,6 @@
 import os
 import datetime
+import traceback
 
 from confluent_kafka import Consumer, KafkaError
 from prometheus_client import start_http_server, Counter, Enum, Gauge, Histogram, Info
@@ -58,6 +59,28 @@ c = Consumer({
 _sigterm_received = False
 
 
+def process_payload_status(json_msg):
+    logger.info(f"Processing payload status for {json_msg}")
+
+    # sanitize the payload status
+    sanitized_payload_status = {
+        'service': json_msg['service']
+        'payload_id': json_msg['payload_id']
+        'status': json_msg['status']
+    }
+    for key in ['inventory_id', 'system_id', 'status', 'status_msg']:
+        if key in json_msg:
+            sanitized_payload_status[key] = json_msg[key]
+
+    if 'date' in json_msg:
+        sanitized_payload_status['date'] = json_msg['date']
+    else:
+        sanitized_payload_status['date'] = datetime.datetime.now()
+
+    # insert into database
+    
+    
+
 def start():
     # Log env vars / settings
     logger.info("Using LOG_LEVEL %s", LOG_LEVEL)
@@ -83,6 +106,20 @@ def start():
     c.subscribe(topic_subscriptions)
     logger.info("Subscribed to topics.")
 
+    """
+    The format of a message to the payload tracking service is as follows:
+    {   ‘service’: ‘The services name processing the payload’,
+        ‘payload_id’: ‘The ID of the payload’,
+        ‘inventory_id’: “The ID of the entity in term of the inventory’,
+        ‘system_id’: ‘The ID of the entity in terms of the actual system’,
+        ‘status’: ‘received|processing|success|failure’,
+        ‘status_msg’: ‘Information relating to the above status, should more verbiage be needed (in the event of an error)’,
+        ‘date’: ‘Timestamp for the message relating to the ‘status’ above’,
+    }
+    """
+    # Define required_keys for messages outside of the while loop
+    required_keys = ['service', 'payload_id', 'status']
+
     # Poll the topics we are consuming from
     logger.info("Begin polling Kafka.")
     while not _sigterm_received:
@@ -101,6 +138,21 @@ def start():
             'Received Platform Kafka message at %s from topic %s: %s',
             datetime.datetime.now(), msg.topic(), msg.value()
         )
+
+        try:
+            logger.info("Loading Kafka message as JSON.")
+            json_msg = json.loads(msg.value().decode('unicode_escape').strip('"'))
+        except Exception:
+            the_error = traceback.format_exc()
+            logger.error(f"Could not load Kafka message as JSON: {the_error}")
+            json_msg = {}
+
+        missing_keys = [key for key in required_keys if key not in json_msg]
+        if not missing_keys:
+            logger.info("Payload has valid keys, submitting to executor for processing.")
+            submit_to_executor(executor, process_payload_status, json_msg)
+        else:
+            logger.error(f"Payload has missing keys {required_keys}")
 
     # Shut down executor
     executor.shutdown()
