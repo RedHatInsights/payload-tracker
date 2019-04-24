@@ -8,4 +8,4 @@ RUN scl enable rh-python36 "pip install --upgrade pip && \
                             pipenv install --system"
 
 EXPOSE 8000
-CMD ["python", "tracker.py"]
+CMD ["python", "app.py"]

@@ -3,6 +3,13 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 name = "pypi"
 
+[packages]
+confluent-kafka = "*"
+prometheus-client = "*"
+logstash-formatter = "*"
+connexion = {editable = true, ref = "body_middleware_fix", git = "git://github.com/fijshion/connexion.git"}
+insights-connexion = {editable = true, ref = "aiohttp-validation", git = "git://github.com/RedHatInsights/insights_connexion.git"}
+
 [dev-packages]
 pytest = "*"
 coverage = "*"
@@ -11,12 +18,9 @@ pytest-mock = "*"
 pytest-cov = "*"
 "flake8-junit-report" = "*"
 
-[packages]
-confluent-kafka = "*"
-prometheus-client = "*"
-logstash-formatter = "*"
-connexion = {editable = true, ref = "master", git = "git://github.com/zalando/connexion.git"}
-insights-connexion = {editable = true, ref = "master", git = "git://github.com/RedHatInsights/insights_connexion.git"}
-
 [requires]
 python_version = "3.6"
+
+[scripts]
+server = "python app.py"
+migrate = "alembic upgrade head"
