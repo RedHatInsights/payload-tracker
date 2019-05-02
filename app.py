@@ -5,7 +5,7 @@ import traceback
 from aiokafka import AIOKafkaConsumer
 from kafkahelpers import ReconnectingClient
 from prometheus_client import start_http_server, Counter, Enum, Gauge, Histogram, Info
-from concurrent.futures import ThreadPoolExecutor
+from bounded_executor import BoundedExecutor
 import insights_connexion.app as app
 from insights_connexion.app import asyncio
 
@@ -14,7 +14,7 @@ import tracker_logging
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 BOOTSTRAP_SERVERS = os.environ.get('BOOTSTRAP_SERVERS', 'localhost:9092')
 GROUP_ID = os.environ.get('GROUP_ID', 'payload_tracker')
-THREAD_POOL_SIZE = os.environ.get('THREAD_POOL_SIZE', 8)
+THREAD_POOL_SIZE = int(os.environ.get('THREAD_POOL_SIZE', 8))
 PAYLOAD_TRACKER_TOPIC = os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker')
 
 # Prometheus configuration
@@ -51,7 +51,7 @@ logger = tracker_logging.initialize_logging()
 
 # start thread pool executor and loop
 logger.info("Starting thread pool executor and asyncio loop.")
-executor = ThreadPoolExecutor(max_workers=int(THREAD_POOL_SIZE))
+executor = BoundedExecutor(0, THREAD_POOL_SIZE)
 loop = asyncio.get_event_loop()
 loop.set_default_executor(executor)
 
