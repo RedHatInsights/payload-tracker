@@ -1,6 +1,7 @@
 import os
 import datetime
 import traceback
+import json
 
 from aiokafka import AIOKafkaConsumer
 from kafkahelpers import ReconnectingClient
@@ -8,6 +9,8 @@ from prometheus_client import start_http_server, Counter, Enum, Gauge, Histogram
 from bounded_executor import BoundedExecutor
 import insights_connexion.app as app
 from insights_connexion.app import asyncio
+from db.models import Payload
+from insights_connexion.db.gino import db
 
 import tracker_logging
 
@@ -64,25 +67,53 @@ CONSUMER = ReconnectingClient(kafka_consumer, "consumer")
 
 
 async def process_payload_status(json_msgs):
+    logger.info(f"Processing messages: {json_msgs}")
     for msg in json_msgs:
-        logger.info(f"Processing payload status for {json_msg}")
+        logger.info(f"Processing Payload Message {msg.value}")
+        data = None
 
-        # sanitize the payload status
-        sanitized_payload_status = {
-            'service': json_msg['service'],
-            'payload_id': json_msg['payload_id'],
-            'status': json_msg['status']
-        }
-        for key in ['inventory_id', 'system_id', 'status', 'status_msg']:
-            if key in json_msg:
-                sanitized_payload_status[key] = json_msg[key]
+        try:
+            data = json.loads(msg.value)
+        except Exception:
+            logger.exception("process_payload_status(): unable to decode msg as json: %s", msg.value)
+            continue
 
-        if 'date' in json_msg:
-            sanitized_payload_status['date'] = json_msg['date']
+        if data:
+            logger.info("Payload message processed as JSON.")
+
+            # Check for missing keys
+            expected_keys = ["service", "payload_id", "status"]
+            missing_keys = [key for key in expected_keys if key not in data]
+            if missing_keys:
+                logger.info(f"Payload {data} missing keys {missing_keys}. Expected {expected_keys}")
+                pass
+
+            logger.info("Payload message has expected keys. Begin sanitizing")
+            # sanitize the payload status
+            sanitized_payload_status = {
+                'service': data['service'],
+                'payload_id': data['payload_id'],
+                'status': data['status']
+            }
+            for key in ['inventory_id', 'system_id', 'status_msg']:
+                if key in data:
+                    sanitized_payload_status[key] = data[key]
+
+            if 'date' in data:
+                sanitized_payload_status['date'] = data['date']
+            else:
+                sanitized_payload_status['date'] = datetime.datetime.now()
+
+            logger.info(f"Sanitized Payload for DB {sanitized_payload_status}")
+            # insert into database
+            async with db.transaction():
+                payload_to_create = Payload(**sanitized_payload_status)
+                created_payload = await payload_to_create.create()
+                dump = created_payload.dump()
+                logger.info(f"DB Transaction {created_payload} - {dump}")
+                return dump
         else:
-            sanitized_payload_status['date'] = datetime.datetime.now()
-
-        # insert into database
+            continue
 
 
 async def consume(client):

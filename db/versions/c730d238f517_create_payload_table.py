@@ -30,7 +30,7 @@ depends_on = None
 """
 def upgrade():
     op.create_table('payloads',
-                    sa.Column('id', sa.String(), nullable=False),
+                    sa.Column('id', sa.Integer(), nullable=False, autoincrement=True),
                     sa.Column('service', sa.String(), nullable=False),
                     sa.Column('payload_id', sa.String(), nullable=False),
                     sa.Column('inventory_id', sa.String(), nullable=True),

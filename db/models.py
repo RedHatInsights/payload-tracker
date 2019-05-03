@@ -17,7 +17,7 @@ class Payload(db.Model):
 
     __tablename__ = 'payloads'
 
-    id = db.Column(db.Unicode, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     service = db.Column(db.Unicode)
     payload_id = db.Column(db.Unicode)
     inventory_id = db.Column(db.Unicode)
