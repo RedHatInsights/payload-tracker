@@ -10,7 +10,7 @@ connexion = {editable = true, ref = "master", git = "git://github.com/fijshion/c
 insights-connexion = {editable = true, ref = "master", git = "git://github.com/RedHatInsights/insights_connexion.git"}
 aiokafka = "*"
 kafkahelpers = "*"
-sqlalchemy = "==1.2.12"
+sqlalchemy = "*"
 
 [dev-packages]
 pytest = "*"
