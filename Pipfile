@@ -6,18 +6,19 @@ name = "pypi"
 [packages]
 prometheus-client = "*"
 logstash-formatter = "*"
-connexion = {editable = true, ref = "d2249fb5c7eee30cef8adbe61bbb056837eb257b", git = "git://github.com/fijshion/connexion.git"}
-insights-connexion = {editable = true, ref = "aiohttp-validation", git = "git://github.com/RedHatInsights/insights_connexion.git"}
+connexion = {editable = true, ref = "master", git = "git://github.com/fijshion/connexion.git"}
+insights-connexion = {editable = true, ref = "master", git = "git://github.com/RedHatInsights/insights_connexion.git"}
 aiokafka = "*"
 kafkahelpers = "*"
+sqlalchemy = "==1.2.12"
 
 [dev-packages]
 pytest = "*"
 coverage = "*"
-"flake8" = "*"
+flake8 = "*"
 pytest-mock = "*"
 pytest-cov = "*"
-"flake8-junit-report" = "*"
+flake8-junit-report = "*"
 
 [requires]
 python_version = "3.6"
