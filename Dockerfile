@@ -5,7 +5,7 @@ COPY . .
 
 RUN scl enable rh-python36 "pip install --upgrade pip && \
                             pip install pipenv && \
-                            pipenv install --system --deploy"
+                            pipenv install --system"
 
 EXPOSE 8000
 EXPOSE 8080
