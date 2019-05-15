@@ -7,11 +7,11 @@ from aiokafka import AIOKafkaConsumer
 from kafkahelpers import ReconnectingClient
 from prometheus_client import start_http_server, Counter, Enum, Gauge, Histogram, Info
 from bounded_executor import BoundedExecutor
-import insights_connexion.app as app
-from insights_connexion.app import asyncio
-from db.models import Payload
-from insights_connexion.db.gino import db
+import asyncio
+import connexion
 
+import config
+from db import init_db, db, Payload
 import tracker_logging
 
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
@@ -50,7 +50,6 @@ PAYLOAD_TRACKER_SERVICE_VERSION.info({'build_name': BUILD_NAME,
 
 # Setup logging
 logger = tracker_logging.initialize_logging()
-
 
 # start thread pool executor and loop
 logger.info("Starting thread pool executor and asyncio loop.")
@@ -124,8 +123,21 @@ async def consume(client):
     await asyncio.sleep(0.1)
 
 
-def start():
+async def setup_app():
+    app = {}
+    await init_db(config)
+    app['db'] = db
+    return app
+
+
+def start_prometheus():
+    start_http_server(PROMETHEUS_PORT)
+
+
+if __name__ == "__main__":
     try:
+        logger.info('Starting Payload Tracker Service')
+
         # Log env vars / settings
         logger.info("Using LOG_LEVEL: %s", LOG_LEVEL)
         logger.info("Using BOOTSTRAP_SERVERS: %s", BOOTSTRAP_SERVERS)
@@ -144,19 +156,13 @@ def start():
         logger.info('Starting Kafka consumer for Payload status messages.')
         loop.create_task(CONSUMER.get_callback(consume)())
 
-        # start the API endpoint and database connections
-        logger.info('Starting Connexions App for REST API and Database.')
-        app.start()
+        # setup http app and db
+        loop.run_until_complete(setup_app())
 
-    except Exception:
+        # loops
+        loop.run_forever()
+    except:
+        the_error = traceback.format_exc()
+        logger.error(f"Failed starting Payload Tracker with Error: {the_error}")
         # Shut down loop
-        loop.stop()
-
-
-def start_prometheus():
-    start_http_server(PROMETHEUS_PORT)
-
-
-if __name__ == "__main__":
-    logger.info('Starting Payload Tracker Service')
-    start()
+        loop.stop()   

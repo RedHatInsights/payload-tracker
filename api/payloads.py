@@ -1,8 +1,8 @@
 import asyncio
 
 from db.models import Payload
-from insights_connexion import responses
-from insights_connexion.db.gino import db
+from connexion import responses
+from connexion.db.gino import db
 
 
 async def _get_one_payload(id):

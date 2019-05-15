@@ -1,4 +1,16 @@
-from insights_connexion.db.gino import db
+from gino import Gino
+db = Gino()
+
+async def init_db(config):
+    await db.set_bind('postgresql://{}:{}@{}:{}/{}'.format(config.db_user,
+                                                           config.db_password,
+                                                           config.db_host,
+                                                           config.db_port,
+                                                           config.db_name))
+
+
+async def disconnect():
+    db.pop_bind().close()
 
 
 class Payload(db.Model):
@@ -24,7 +36,7 @@ class Payload(db.Model):
     system_id = db.Column(db.Unicode)
     status = db.Column(db.Unicode)
     status_msg = db.Column(db.Unicode)
-    date = db.Column(db.DateTime)
+    date = db.Column(db.Unicode)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
     def dump(self):

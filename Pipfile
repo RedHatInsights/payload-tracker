@@ -6,11 +6,14 @@ name = "pypi"
 [packages]
 prometheus-client = "*"
 logstash-formatter = "*"
-connexion = {editable = true, ref = "master", git = "git://github.com/fijshion/connexion.git"}
-insights-connexion = {editable = true, ref = "master", git = "git://github.com/RedHatInsights/insights_connexion.git"}
 aiokafka = "*"
 kafkahelpers = "*"
-sqlalchemy = "==1.2.12"
+sqlalchemy = "*"
+pip = "*"
+werkzeug = "*"
+connexion = "*"
+"psycopg2" = "*"
+gino = "*"
 
 [dev-packages]
 pytest = "*"
