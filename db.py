@@ -17,6 +17,8 @@ class Payload(db.Model):
     """
     {   'id': UUID
         ‘service’: ‘The services name processing the payload’,
+        'source': 'third party rule hit source',
+        'account': 'an account',
         ‘payload_id’: ‘The ID of the payload’,
         ‘inventory_id’: “The ID of the entity in term of the inventory’,
         ‘system_id’: ‘The ID of the entity in terms of the actual system’,
@@ -31,6 +33,8 @@ class Payload(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     service = db.Column(db.Unicode)
+    source = db.Column(db.Unicode)
+    account = db.Column(db.Unicode)
     payload_id = db.Column(db.Unicode)
     inventory_id = db.Column(db.Unicode)
     system_id = db.Column(db.Unicode)

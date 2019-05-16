@@ -94,7 +94,7 @@ async def process_payload_status(json_msgs):
                 'payload_id': data['payload_id'],
                 'status': data['status']
             }
-            for key in ['inventory_id', 'system_id', 'status_msg']:
+            for key in ['inventory_id', 'system_id', 'status_msg', 'source', 'account']:
                 if key in data:
                     sanitized_payload_status[key] = data[key]
 
