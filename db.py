@@ -14,21 +14,6 @@ async def disconnect():
 
 
 class Payload(db.Model):
-    """
-    {   'id': UUID
-        ‘service’: ‘The services name processing the payload’,
-        'source': 'third party rule hit source',
-        'account': 'an account',
-        ‘payload_id’: ‘The ID of the payload’,
-        ‘inventory_id’: “The ID of the entity in term of the inventory’,
-        ‘system_id’: ‘The ID of the entity in terms of the actual system’,
-        ‘status’: ‘received|processing|success|failure’,
-        ‘status_msg’: ‘Information relating to the above status, should more verbiage be needed (in the event of an error)’,
-        ‘date’: ‘Timestamp for the message relating to the ‘status’ above’,
-        'created_at': DB timestamp
-    }
-    """
-
     __tablename__ = 'payloads'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
