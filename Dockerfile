@@ -10,4 +10,5 @@ RUN pipenv install --system
 EXPOSE 8000
 EXPOSE 8080
 USER 1001
-CMD ["python", "./app.py"]
+CMD ["pipenv", "run", "migrate"]
+CMD ["pipenv", "run", "server"]
