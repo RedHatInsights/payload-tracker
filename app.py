@@ -126,7 +126,7 @@ async def consume(client):
 
 async def setup_app():
     app = {}
-    await init_db(config)
+    await init_db()
     app['db'] = db
     return app
 
