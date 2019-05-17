@@ -10,5 +10,5 @@ RUN pipenv install --system
 EXPOSE 8000
 EXPOSE 8080
 USER 1001
-CMD ["pipenv", "run", "migrate"]
-CMD ["pipenv", "run", "server"]
+CMD ["alembic", "upgrade", "head"]
+CMD ["python", "./app.py"]
