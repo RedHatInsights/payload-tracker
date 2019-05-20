@@ -124,12 +124,18 @@ async def consume(client):
     await asyncio.sleep(0.1)
 
 
-async def setup_app():
+async def setup_db():
     app = {}
     await init_db()
     app['db'] = db
     return app
 
+
+async def setup_api():
+    app = connexion.App(__name__, specification_dir='swagger/')
+    app.add_api('api.spec.yaml')
+    app.run(port=API_PORT)
+    return app
 
 def start_prometheus():
     start_http_server(PROMETHEUS_PORT)
@@ -158,9 +164,15 @@ if __name__ == "__main__":
         loop.create_task(CONSUMER.get_callback(consume)())
 
         # setup http app and db
-        loop.run_until_complete(setup_app())
+        logger.info("Setting up Database")
+        loop.run_until_complete(setup_db())
+
+        # start the connexion app
+        logger.info("Setting up REST API")
+        loop.create_task(setup_api())
 
         # loops
+        logger.info("Running...")
         loop.run_forever()
     except:
         the_error = traceback.format_exc()

@@ -11,7 +11,7 @@ kafkahelpers = "*"
 sqlalchemy = "*"
 pip = "*"
 werkzeug = "*"
-connexion = "*"
+connexion = {extras = ["swagger-ui"],version = "*"}
 "psycopg2" = "*"
 gino = "*"
 alembic = "*"
