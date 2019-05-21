@@ -1,0 +1,13 @@
+version: '2.2'
+services:
+  payload-tracker-db:
+    image: registry.access.redhat.com/rhscl/postgresql-96-rhel7
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRESQL_DATABASE=payloadtracker
+      - POSTGRESQL_USER=payloadtracker
+      - POSTGRESQL_PASSWORD=payloadtracker
+    command: sh -c "mkdir -p /opt/app-root/src/postgresql-start &&
+                    echo 'psql -c \"ALTER USER payloadtracker CREATEDB;\"' >> /opt/app-root/src/postgresql-start/make_test_work.sh &&
+                    run-postgresql"
