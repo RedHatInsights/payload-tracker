@@ -133,10 +133,9 @@ async def setup_db():
     return app
 
 
-async def setup_api():
+def setup_api():
     app = connexion.AioHttpApp(__name__, specification_dir='swagger/')
     app.add_api('api.spec.yaml', resolver=RestyResolver('api'))
-    app.run(port=API_PORT)
     return app
 
 def start_prometheus():
@@ -156,6 +155,10 @@ if __name__ == "__main__":
         logger.info("Using DISABLE_PROMETHEUS: %s", DISABLE_PROMETHEUS)
         logger.info("Using PROMETHEUS_PORT: %s", PROMETHEUS_PORT)
 
+        # setup the connexion app
+        logger.info("Setting up REST API")
+        app = setup_api()
+
         # start prometheus
         if not DISABLE_PROMETHEUS:
             logger.info('Starting Payload Tracker Prometheus Server')
@@ -169,13 +172,9 @@ if __name__ == "__main__":
         logger.info("Setting up Database")
         loop.create_task(setup_db())
 
-        # start the connexion app
-        logger.info("Setting up REST API")
-        loop.create_task(setup_api())
-
         # loops
         logger.info("Running...")
-        loop.run_forever()
+        app.run(port=API_PORT)
     except:
         the_error = traceback.format_exc()
         logger.error(f"Failed starting Payload Tracker with Error: {the_error}")
