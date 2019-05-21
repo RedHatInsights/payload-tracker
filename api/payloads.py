@@ -5,7 +5,7 @@ import responses
 
 
 async def _get_one_payload(id):
-    return await Payload.query.where(Payload.id == id).gino.first()
+    return await Payload.query.where(Payload.payload_id == id).gino.first()
 
 
 async def get(id):
