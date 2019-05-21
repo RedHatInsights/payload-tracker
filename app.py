@@ -9,6 +9,7 @@ from prometheus_client import start_http_server, Counter, Enum, Gauge, Histogram
 from bounded_executor import BoundedExecutor
 import asyncio
 import connexion
+from connexion.resolver import RestyResolver
 
 import config
 from db import init_db, db, Payload
@@ -19,6 +20,7 @@ BOOTSTRAP_SERVERS = os.environ.get('BOOTSTRAP_SERVERS', 'localhost:9092')
 GROUP_ID = os.environ.get('GROUP_ID', 'payload_tracker')
 THREAD_POOL_SIZE = int(os.environ.get('THREAD_POOL_SIZE', 8))
 PAYLOAD_TRACKER_TOPIC = os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker')
+API_PORT = os.environ.get('API_PORT', 8080)
 
 # Prometheus configuration
 DISABLE_PROMETHEUS = True if os.environ.get('DISABLE_PROMETHEUS') == "True" else False
@@ -132,8 +134,8 @@ async def setup_db():
 
 
 async def setup_api():
-    app = connexion.App(__name__, specification_dir='swagger/')
-    app.add_api('api.spec.yaml')
+    app = connexion.AioHttpApp(__name__, specification_dir='swagger/')
+    app.add_api('api.spec.yaml', resolver=RestyResolver('api'))
     app.run(port=API_PORT)
     return app
 
@@ -165,7 +167,7 @@ if __name__ == "__main__":
 
         # setup http app and db
         logger.info("Setting up Database")
-        loop.run_until_complete(setup_db())
+        loop.create_task(setup_db())
 
         # start the connexion app
         logger.info("Setting up REST API")

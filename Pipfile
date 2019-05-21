@@ -15,6 +15,8 @@ connexion = {extras = ["swagger-ui"],version = "*"}
 "psycopg2" = "*"
 gino = "*"
 alembic = "*"
+aiohttp = "*"
+aiohttp-jinja2 = "*"
 
 [dev-packages]
 pytest = "*"

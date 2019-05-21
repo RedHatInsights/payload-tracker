@@ -9,7 +9,7 @@ consumes:
 produces:
   - application/json
 paths:
-  /payload/{id}:
+  /payloads/{id}:
     get:
       description: ''
       parameters: []
@@ -49,6 +49,12 @@ definitions:
         type: string
       service:
         title: Service
+        type: string
+      source:
+        title: Source
+        type: string
+      account:
+        title: Account
         type: string
       payload_id:
         title: Payload ID
