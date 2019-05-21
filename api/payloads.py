@@ -4,13 +4,14 @@ from db import Payload, db
 import responses
 
 
-async def _get_one_payload(id):
-    return await Payload.query.where(Payload.payload_id == id).gino.first()
+async def _get_payloads(payload_id):
+    return await Payload.query.where(Payload.payload_id == payload_id).gino.all()
 
 
-async def get(id):
-    body = await _get_one_payload(id)
-    if body is None:
+async def get(payload_id):
+    payloads = await _get_payloads(payload_id)
+    payload_dump = [payload.dump() for payload in payloads]
+    if payloads is None:
         return responses.not_found()
     else:
-        return responses.get(body.dump())
+        return responses.get(payload_dump)

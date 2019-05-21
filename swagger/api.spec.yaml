@@ -9,7 +9,7 @@ consumes:
 produces:
   - application/json
 paths:
-  /payloads/{id}:
+  /payloads/{payload_id}:
     get:
       description: ''
       parameters: []
@@ -21,7 +21,7 @@ paths:
         '404':
             $ref: '#/responses/NotFound'
     parameters:
-      - name: id
+      - name: payload_id
         in: path
         description: A unique value identifying this payload.
         required: true
