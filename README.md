@@ -35,6 +35,32 @@ Simply send a message on the ‘platform.payload-status’ for your given Kafka 
 ```
 
 
+Docker
+--------------------
+
+The docker-compose file included in this repo will stand up a message queue (Kafka), and
+a Postgresql Database
+
+
+Prequisites
+--------------------
+    docker
+    docker-compose
+
+
+Queue
+--------------------
+
+You can either connect to a remote kafka server, or set up a local one. To spawn your own
+Kafka server, simply install it using your favorite package manager. To run Kafka, you need
+Zookeeper and JRE. First launch Zookeeper and then Kafka, possibly set them up as services
+so they relaunch on reboot.
+
+Make sure that your Kafka server can accept connection from your apps. Especially the
+`listeners` configuration value in your `server.properties` config file must be properly
+set. If Kafka runs on the same machine as the apps, the default config should work.
+
+
 Dev Setup
 --------------------
 1. Install dependencies
@@ -43,9 +69,9 @@ pip install pipenv alembic --user
 pipenv install
 ```
 
-2. Start Postgres Database (might need to run this as root depending on your docker setup)
+2. Start Postgres Database and Kafka (might need to run this as root depending on your docker setup)
 ```
-docker-compose up payload-tracker-db
+docker-compose up
 ```
 
 3. Migrate the Database
@@ -54,11 +80,20 @@ pipenv shell
 PYTHONPATH=. alembic upgrade head
 ```
 
-4. Setup Kafka
-```
-wewboi
-```
-
-5. Start the server
+4. Start the server
 ```
 pipenv run server
+```
+
+
+Contributing
+--------------------
+All outstanding issues or feature requests should be filed as Issues on this Github
+page. PRs should be submitted against the master branch for any new features or changes.
+
+
+Versioning
+--------------------
+Anytime an endpoint is modified, the versin should be incremented by `0.1`. New
+functionality introduced that may effect the client should increment by `1`. Minor
+features and bug fixes can increment by `0.0.1`

@@ -1,4 +1,4 @@
-version: '2.2'
+version: '3'
 services:
   payload-tracker-db:
     image: registry.access.redhat.com/rhscl/postgresql-96-rhel7
@@ -11,3 +11,19 @@ services:
     command: sh -c "mkdir -p /opt/app-root/src/postgresql-start &&
                     echo 'psql -c \"ALTER USER payloadtracker CREATEDB;\"' >> /opt/app-root/src/postgresql-start/make_test_work.sh &&
                     run-postgresql"
+  zookeeper:
+    image: confluentinc/cp-zookeeper
+    environment:
+      - ZOOKEEPER_CLIENT_PORT=32181
+      - ZOOKEEPER_SERVER_ID=1
+  kafka:
+    image: confluentinc/cp-kafka
+    ports:
+      - 29092:29092
+    depends_on:
+      - zookeeper
+    environment:
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:29092
+      - KAFKA_BROKER_ID=1
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:32181
