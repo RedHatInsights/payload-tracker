@@ -9,6 +9,78 @@ consumes:
 produces:
   - application/json
 paths:
+  /payloads:
+    get:
+      description: ''
+      parameters:
+        - name: page
+          in: query
+          description: A page number within the paginated result set.
+          required: false
+          type: integer
+          default: 0
+        - name: page_size
+          in: query
+          description: Size of the page
+          required: false
+          type: integer
+          default: 10
+        - name: sort_by
+          in: query
+          description: Attribute to sort results by
+          required: false
+          type: string
+          default: payload_id
+          enum: [payload_id, status, service, inventory_id, account, date]
+        - name: status
+          in: query
+          description: filter for status
+          required: false
+          type: string
+        - name: service
+          in: query
+          description: filter for service
+          type: string
+        - name: inventory_id
+          in: query
+          description: filter for inventory_id
+          type: string
+        - name: account
+          in: query
+          description: filter for account
+          type: string
+        - name: start_date
+          in: query
+          type: string
+          format: date-time
+        - name: end_date
+          in: query
+          type: string
+          format: date-time
+        - name: first_created_at
+          in: query
+          type: string
+          format: date-time
+        - name: last_created_at
+          in: query
+          type: string
+          format: date-time
+        - name: sort_dir
+          in: query
+          description: Direction to sort
+          required: false
+          type: string
+          default: asc
+          enum: [asc, desc]
+      responses:
+        '200':
+          description: ''
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/PayloadRetrieve'
+        '404':
+          $ref: '#/responses/NotFound'
   /payloads/{payload_id}:
     get:
       description: ''
@@ -26,6 +98,7 @@ paths:
         description: A unique value identifying this payload.
         required: true
         type: string
+
 responses:
   NotFound:
     description: The specified resource was not found
@@ -39,6 +112,92 @@ definitions:
         type: string
     required:
       - message
+  # AccountRetrieve:
+  #   required:
+  #     - account
+  #   type: object
+  #   properties:
+  #     id:
+  #       title: Id
+  #       type: string
+  #     service:
+  #       title: Service
+  #       type: string
+  #     source:
+  #       title: Source
+  #       type: string
+  #     account:
+  #       title: Account
+  #       type: string
+  #     payload_id:
+  #       title: Payload ID
+  #       type: string
+  #     inventory_id:
+  #       title: Inventory ID
+  #       type: string
+  #       minLength: 1
+  #     system_id:
+  #       title: System ID
+  #       type: string
+  #     status:
+  #       title: Status
+  #       type: string
+  #     status_msg:
+  #       title: Status Message
+  #       type: string
+  #     date:
+  #       title: Status Date
+  #       type: string
+  #       format: date-time
+  #       readOnly: true
+  #     created_at:
+  #       title: Created at
+  #       type: string
+  #       format: date-time
+  #       readOnly: true
+  # InventoryRetrieve:
+  #   required:
+  #     - inventory_id
+  #   type: object
+  #   properties:
+  #     id:
+  #       title: Id
+  #       type: string
+  #     service:
+  #       title: Service
+  #       type: string
+  #     source:
+  #       title: Source
+  #       type: string
+  #     account:
+  #       title: Account
+  #       type: string
+  #     payload_id:
+  #       title: Payload ID
+  #       type: string
+  #     inventory_id:
+  #       title: Inventory ID
+  #       type: string
+  #       minLength: 1
+  #     system_id:
+  #       title: System ID
+  #       type: string
+  #     status:
+  #       title: Status
+  #       type: string
+  #     status_msg:
+  #       title: Status Message
+  #       type: string
+  #     date:
+  #       title: Status Date
+  #       type: string
+  #       format: date-time
+  #       readOnly: true
+  #     created_at:
+  #       title: Created at
+  #       type: string
+  #       format: date-time
+  #       readOnly: true
   PayloadRetrieve:
     required:
       - payload_id
@@ -82,3 +241,4 @@ definitions:
         type: string
         format: date-time
         readOnly: true
+
