@@ -1,5 +1,6 @@
 import os
 import datetime
+from dateutil import parser
 import traceback
 import json
 
@@ -100,11 +101,10 @@ async def process_payload_status(json_msgs):
                 if key in data:
                     sanitized_payload_status[key] = data[key]
 
-            #TODO: At some point parse the date received from the payload service
-            #if 'date' in data:
-            #    sanitized_payload_status['date'] = dateutil.parser.parse(data['date'])
-            #else:
-            sanitized_payload_status['date'] = datetime.datetime.now()
+            if 'date' in data:
+                sanitized_payload_status['date'] = parser.parse(data['date'])
+            else:
+                sanitized_payload_status['date'] = datetime.datetime.now()
 
             logger.info(f"Sanitized Payload for DB {sanitized_payload_status}")
             # insert into database
