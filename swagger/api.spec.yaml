@@ -9,6 +9,31 @@ consumes:
 produces:
   - application/json
 paths:
+  /payloads:
+    get:
+      responses:
+        '200':
+          description: 'gets all payloads in db or payloads filtered by date or payloads filtered by status'
+          schema:
+            $ref: '#/definitions/PayloadRetrieve'
+        '404':
+          $ref: '#/responses/NotFound'
+    parameters:
+      - name: start_date
+        in: query
+        description: 'The start date for filter by date'
+        required: false
+        type: string
+      - name: end_date
+        in: query
+        description: 'The end date for filter by date'
+        required: false
+        type: string
+      - name: status
+        in: query
+        description: 'The status for a filter by status'
+        required: false
+        type: string
   /payloads/{payload_id}:
     get:
       description: ''
@@ -26,6 +51,58 @@ paths:
         description: A unique value identifying this payload.
         required: true
         type: string
+  /payloads/services/{service}:
+    get:
+      description: ''
+      parameters: []
+      responses:
+        '200':
+          description: 'Get set of payloads using a given service'
+          schema:
+            $ref: '#/definitions/PayloadRetrieve'
+        '404':
+          $ref: '#/responses/NotFound'
+    parameters:
+      - name: service
+        in: path
+        description: A unique value identifiying a service
+        required: true
+        type: string
+  /payloads/inventories/{inventory_id}:
+    get:
+      description: 'Get payload(s) with given inventory_id'
+      parameters: []
+      responses:
+        '200':
+          description: 'Get payload(s) with a given inventory_id'
+          schema:
+            $ref: '#/definitions/PayloadRetrieve'
+        '404':
+          $ref: '#/responses/NotFound'
+    parameters:
+      - name: inventory_id
+        in: path
+        description: 'defines the inventory for (a) payload(s)'
+        required: true
+        type: string
+  /payloads/accounts/{account}:
+    get:
+      description: 'Get payload(s) with given account name'
+      parameters: []
+      responses:
+        '200':
+          description: 'Get payload(s) with a given account name'
+          schema:
+            $ref: '#/definitions/PayloadRetrieve'
+        '404':
+          $ref: '#/responses/NotFound'
+    parameters:
+      - name: account
+        in: path
+        description: 'defines the account for (a) payload(s)'
+        required: true
+        type: string
+
 responses:
   NotFound:
     description: The specified resource was not found
@@ -39,6 +116,92 @@ definitions:
         type: string
     required:
       - message
+  # AccountRetrieve:
+  #   required:
+  #     - account
+  #   type: object
+  #   properties:
+  #     id:
+  #       title: Id
+  #       type: string
+  #     service:
+  #       title: Service
+  #       type: string
+  #     source:
+  #       title: Source
+  #       type: string
+  #     account:
+  #       title: Account
+  #       type: string
+  #     payload_id:
+  #       title: Payload ID
+  #       type: string
+  #     inventory_id:
+  #       title: Inventory ID
+  #       type: string
+  #       minLength: 1
+  #     system_id:
+  #       title: System ID
+  #       type: string
+  #     status:
+  #       title: Status
+  #       type: string
+  #     status_msg:
+  #       title: Status Message
+  #       type: string
+  #     date:
+  #       title: Status Date
+  #       type: string
+  #       format: date-time
+  #       readOnly: true
+  #     created_at:
+  #       title: Created at
+  #       type: string
+  #       format: date-time
+  #       readOnly: true
+  # InventoryRetrieve:
+  #   required:
+  #     - inventory_id
+  #   type: object
+  #   properties:
+  #     id:
+  #       title: Id
+  #       type: string
+  #     service:
+  #       title: Service
+  #       type: string
+  #     source:
+  #       title: Source
+  #       type: string
+  #     account:
+  #       title: Account
+  #       type: string
+  #     payload_id:
+  #       title: Payload ID
+  #       type: string
+  #     inventory_id:
+  #       title: Inventory ID
+  #       type: string
+  #       minLength: 1
+  #     system_id:
+  #       title: System ID
+  #       type: string
+  #     status:
+  #       title: Status
+  #       type: string
+  #     status_msg:
+  #       title: Status Message
+  #       type: string
+  #     date:
+  #       title: Status Date
+  #       type: string
+  #       format: date-time
+  #       readOnly: true
+  #     created_at:
+  #       title: Created at
+  #       type: string
+  #       format: date-time
+  #       readOnly: true
   PayloadRetrieve:
     required:
       - payload_id
