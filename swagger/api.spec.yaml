@@ -39,30 +39,49 @@ paths:
           type: string
         - name: service
           in: query
+          required: false
           description: filter for service
           type: string
         - name: inventory_id
           in: query
+          required: false
           description: filter for inventory_id
           type: string
         - name: account
           in: query
+          required: false
           description: filter for account
+          type: string
+        - name: source
+          in: query
+          required: false
+          type: string
+        - name: system_id
+          in: query
+          required: false
+          type: string
+        - name: status_msg
+          in: query
+          required: false
           type: string
         - name: start_date
           in: query
+          required: false
           type: string
           format: date-time
         - name: end_date
           in: query
+          required: false
           type: string
           format: date-time
         - name: first_created_at
           in: query
+          required: false
           type: string
           format: date-time
         - name: last_created_at
           in: query
+          required: false
           type: string
           format: date-time
         - name: sort_dir
@@ -112,92 +131,6 @@ definitions:
         type: string
     required:
       - message
-  # AccountRetrieve:
-  #   required:
-  #     - account
-  #   type: object
-  #   properties:
-  #     id:
-  #       title: Id
-  #       type: string
-  #     service:
-  #       title: Service
-  #       type: string
-  #     source:
-  #       title: Source
-  #       type: string
-  #     account:
-  #       title: Account
-  #       type: string
-  #     payload_id:
-  #       title: Payload ID
-  #       type: string
-  #     inventory_id:
-  #       title: Inventory ID
-  #       type: string
-  #       minLength: 1
-  #     system_id:
-  #       title: System ID
-  #       type: string
-  #     status:
-  #       title: Status
-  #       type: string
-  #     status_msg:
-  #       title: Status Message
-  #       type: string
-  #     date:
-  #       title: Status Date
-  #       type: string
-  #       format: date-time
-  #       readOnly: true
-  #     created_at:
-  #       title: Created at
-  #       type: string
-  #       format: date-time
-  #       readOnly: true
-  # InventoryRetrieve:
-  #   required:
-  #     - inventory_id
-  #   type: object
-  #   properties:
-  #     id:
-  #       title: Id
-  #       type: string
-  #     service:
-  #       title: Service
-  #       type: string
-  #     source:
-  #       title: Source
-  #       type: string
-  #     account:
-  #       title: Account
-  #       type: string
-  #     payload_id:
-  #       title: Payload ID
-  #       type: string
-  #     inventory_id:
-  #       title: Inventory ID
-  #       type: string
-  #       minLength: 1
-  #     system_id:
-  #       title: System ID
-  #       type: string
-  #     status:
-  #       title: Status
-  #       type: string
-  #     status_msg:
-  #       title: Status Message
-  #       type: string
-  #     date:
-  #       title: Status Date
-  #       type: string
-  #       format: date-time
-  #       readOnly: true
-  #     created_at:
-  #       title: Created at
-  #       type: string
-  #       format: date-time
-  #       readOnly: true
   PayloadRetrieve:
     required:
       - payload_id
