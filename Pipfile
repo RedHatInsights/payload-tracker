@@ -25,6 +25,7 @@ flake8 = "*"
 pytest-mock = "*"
 pytest-cov = "*"
 flake8-junit-report = "*"
+confluent-kafka = "*"
 
 [requires]
 python_version = "3.6"

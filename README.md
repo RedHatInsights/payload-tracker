@@ -86,6 +86,19 @@ pipenv run server
 ```
 
 
+Sending Mock Payloads
+--------------------
+1. Install dependencies
+```
+pip install --dev
+```
+
+2. Run the manual mock payload
+```
+python manual_tests/mock_payload.py
+```
+
+
 Contributing
 --------------------
 All outstanding issues or feature requests should be filed as Issues on this Github
