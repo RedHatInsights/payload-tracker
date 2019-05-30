@@ -16,7 +16,7 @@ from db import init_db, db, Payload
 import tracker_logging
 
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
-BOOTSTRAP_SERVERS = os.environ.get('BOOTSTRAP_SERVERS', '0.0.0.0:9092')
+BOOTSTRAP_SERVERS = os.environ.get('BOOTSTRAP_SERVERS', 'kafka:9092')
 GROUP_ID = os.environ.get('GROUP_ID', 'payload_tracker')
 THREAD_POOL_SIZE = int(os.environ.get('THREAD_POOL_SIZE', 8))
 PAYLOAD_TRACKER_TOPIC = os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker')
