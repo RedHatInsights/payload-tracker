@@ -12,10 +12,11 @@ async def search(*args, **kwargs):
     payload_query = Payload.query.limit(kwargs['page_size']).offset(
             kwargs['page'] * kwargs['page_size']).order_by(sort_func(kwargs['sort_by']))
     
+    #these filters are used to filter within the database using equality comparisons
     basic_eq_filters = ['status', 'service', 'inventory_id', 'account',
                         'source', 'system_id', 'status_msg']
     
-    #compose where clauses for any of the expected filters in the kwargs
+    #compose where clauses for any of the basic equality filters in the kwargs
     for search_param_key in kwargs:
         if search_param_key in basic_eq_filters:
             search_param_value = kwargs[search_param_key]
