@@ -39,16 +39,23 @@ paths:
           type: string
         - name: service
           in: query
+<<<<<<< HEAD
           required: false
+=======
+>>>>>>> 60354df882361f61bf898e138b8c69c583465cc2
           description: filter for service
           type: string
         - name: inventory_id
           in: query
+<<<<<<< HEAD
           required: false
+=======
+>>>>>>> 60354df882361f61bf898e138b8c69c583465cc2
           description: filter for inventory_id
           type: string
         - name: account
           in: query
+<<<<<<< HEAD
           required: false
           description: filter for account
           type: string
@@ -67,21 +74,36 @@ paths:
         - name: start_date
           in: query
           required: false
+=======
+          description: filter for account
+          type: string
+        - name: start_date
+          in: query
+>>>>>>> 60354df882361f61bf898e138b8c69c583465cc2
           type: string
           format: date-time
         - name: end_date
           in: query
+<<<<<<< HEAD
           required: false
+=======
+>>>>>>> 60354df882361f61bf898e138b8c69c583465cc2
           type: string
           format: date-time
         - name: first_created_at
           in: query
+<<<<<<< HEAD
           required: false
+=======
+>>>>>>> 60354df882361f61bf898e138b8c69c583465cc2
           type: string
           format: date-time
         - name: last_created_at
           in: query
+<<<<<<< HEAD
           required: false
+=======
+>>>>>>> 60354df882361f61bf898e138b8c69c583465cc2
           type: string
           format: date-time
         - name: sort_dir
