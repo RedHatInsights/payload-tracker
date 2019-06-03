@@ -102,9 +102,11 @@ async def process_payload_status(json_msgs):
                     sanitized_payload_status[key] = data[key]
 
             if 'date' in data:
-                sanitized_payload_status['date'] = parser.parse(data['date'])
-            else:
-                sanitized_payload_status['date'] = datetime.datetime.now()
+                try:
+                    sanitized_payload_status['date'] = parser.parse(data['date'])
+                except:
+                    the_error = traceback.format_exc()
+                    logger.error(f"Error parsing date: {the_error}")
 
             logger.info(f"Sanitized Payload for DB {sanitized_payload_status}")
             # insert into database
@@ -113,7 +115,7 @@ async def process_payload_status(json_msgs):
                 created_payload = await payload_to_create.create()
                 dump = created_payload.dump()
                 logger.info(f"DB Transaction {created_payload} - {dump}")
-                return dump
+
         else:
             continue
 
