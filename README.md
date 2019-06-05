@@ -16,6 +16,34 @@ Architecture
 Payload Tracker is a service that lives in `platform-<env>`. This service has its own database representative of the current payload status in the platform. There are REST API endpoints that give access to the payload status. There is not currently any front-end UI for this service. This service listens to messages on the Kafka MQ topic `platform.payload-status.`
 
 
+REST API Endpoints
+--------------------
+Please see the Swagger Spec for API Endpoints. The API Swagger Spec is located in `swagger/api.spec.yaml`. They are currently as follows and can be combined:
+```
+/v1/payloads
+	?page=<integer>
+	?page_size=<integer>
+	?sort_by=<string>[service, source, account, payload_id, inventory_id, system_id, status, status_msg, date, created_at]
+	?status=<string>(The status as given on the Payload.)
+	?service=<string>(The service that processed the Payload.)
+	?inventory_id=<string>(The Inventory ID, if received on the Payload.)
+	?account=<string>(An account number, if received on the Payload.)
+	?source=<string>(A source received by the Payload, usually indicated a third-party rule hit.)
+	?system_id=<string>(The Physical Machine ID if it was received on the Payload.)
+	?status_msg=<string>(A verbose status message given with the Payload.)
+	?date_lt=<string>(YYYY-MM-DD)
+	?date_lte=<string>(YYYY-MM-DD)
+	?date_gt=<string>(YYYY-MM-DD)
+	?date_gte=<string>(YYYY-MM-DD)
+	?created_at_lt=<string>(YYYY-MM-DD)
+	?created_at_lte=<string>(YYYY-MM-DD)
+	?created_at_gt=<string>(YYYY-MM-DD)
+	?created_at_gte=<string>(YYYY-MM-DD)
+	?sort_dir=<string>(asc, desc)
+/v1/payloads/{payload_id}
+```
+
+
 Integration
 --------------------
 Simply send a message on the ‘platform.payload-status’ for your given Kafka MQ Broker in the appropriate environment. Currently, the only required fields are ‘service,’ ‘payload_id’ and ‘status,’ however this may change.The format is as follows:
