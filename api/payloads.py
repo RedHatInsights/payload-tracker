@@ -2,7 +2,9 @@ import asyncio
 
 from db import Payload, db
 from datetime import datetime
+from dateutil import parser
 import responses
+import operator
 
 async def search(*args, **kwargs):
 
@@ -22,44 +24,16 @@ async def search(*args, **kwargs):
             payload_query.append_whereclause(
                 getattr(Payload, search_param_key) == search_param_value)
 
-    #filter payload by `date` given date
-    if 'date' in kwargs:
-        date = " ".join(kwargs['date'].split('-'))
-        payload_query.append_whereclause(
-            (getattr(Payload, 'date') >= datetime.strptime(date, '%b %d %Y'))
-        )
-
-    #filter payloads by `date` given a start date and/or an end date
-    if 'start_date' in kwargs and 'end_date' in kwargs:
-        start_date = " ".join(kwargs['start_date'].split('-'))
-        end_date = " ".join(kwargs['end_date'].split('-'))
-        payload_query.append_whereclause(
-            (getattr(Payload, 'date') >= datetime.strptime(start_date, '%b %d %Y')) &
-            (getattr(Payload, 'date') <= datetime.strptime(end_date, '%b %d %Y')))
-    elif 'start_date' in kwargs:
-        start_date = " ".join(kwargs['start_date'].split('-'))
-        payload_query.append_whereclause(
-            (getattr(Payload, 'date') >= datetime.strptime(start_date, '%b %d %Y')))
-    elif 'end_date' in kwargs:
-        end_date = " ".join(kwargs['end_date'].split('-'))
-        payload_query.append_whereclause(
-            (getattr(Payload, 'date') <= datetime.strptime(end_date, '%b %d %Y')))
-
-    #filter payloads by `created_at` given a start date and/or an end date
-    if 'first_created_at' in kwargs and 'last_created_at' in kwargs:
-        first_created_at = " ".join(kwargs['first_created_at'].split('-'))
-        last_created_at = " ".join(kwargs['last_created_at'].split('-'))
-        payload_query.append_whereclause(
-            (getattr(Payload, 'created_at') >= datetime.strptime(first_created_at, '%b %d %Y %H:%M')) &
-            (getattr(Payload, 'created_at') <= datetime.strptime(last_created_at, '%b %d %Y %H:%M')))
-    elif 'first_created_at' in kwargs:
-        first_created_at = " ".join(kwargs['first_created_at'].split('-'))
-        payload_query.append_whereclause(
-            (getattr(Payload, 'created_at') >= datetime.strptime(first_created_at, '%b %d %Y %H:%M')))
-    elif 'last_created_at' in kwargs:
-        last_created_at = " ".join(kwargs['last_created_at'].split('-'))
-        payload_query.append_whereclause(
-            (getattr(Payload, 'created_at') >= datetime.strptime(last_created_at, '%b %d %Y %H:%M')))
+    # Perform comparisons on date fields 'date', and 'created_at'
+    date_group_fns = {'_lt': operator.lt, '_lte': operator.le, 
+                      '_gt': operator.gt, '_gte': operator.ge}
+    for date_field in ['date', 'created_at']:
+        for date_group_str, date_group_fn in date_group_fns.items():
+            if date_field + date_group_str in kwargs:
+                the_date = parser.parse(kwargs[date_field + date_group_str])
+                payload_query.append_whereclause(
+                    date_group_fn(getattr(Payload, date_field), the_date)
+                )
 
     #compile set of payloads from the database
     payloads = await payload_query.gino.all()

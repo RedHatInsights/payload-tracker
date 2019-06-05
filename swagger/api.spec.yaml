@@ -31,7 +31,7 @@ paths:
           required: false
           type: string
           default: payload_id
-          enum: [payload_id, status, service, inventory_id, account, date]
+          enum: [service, source, account, payload_id, inventory_id, system_id, status, status_msg, date, created_at]
         - name: status
           in: query
           description: filter for status
@@ -64,27 +64,42 @@ paths:
           in: query
           required: false
           type: string
-        - name: date
+        - name: date_lt
           in: query
           required: false
           type: string
           format: date-time
-        - name: start_date
+        - name: date_lte
           in: query
           required: false
           type: string
           format: date-time
-        - name: end_date
+        - name: date_gt
           in: query
           required: false
           type: string
           format: date-time
-        - name: first_created_at
+        - name: date_gte
           in: query
           required: false
           type: string
           format: date-time
-        - name: last_created_at
+        - name: created_at_lt
+          in: query
+          required: false
+          type: string
+          format: date-time
+        - name: created_at_lte
+          in: query
+          required: false
+          type: string
+          format: date-time
+        - name: created_at_gt
+          in: query
+          required: false
+          type: string
+          format: date-time
+        - name: created_at_gte
           in: query
           required: false
           type: string
