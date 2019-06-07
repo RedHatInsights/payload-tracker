@@ -41,6 +41,16 @@ Please see the Swagger Spec for API Endpoints. The API Swagger Spec is located i
 	?created_at_gte=<string>(YYYY-MM-DD)
 	?sort_dir=<string>(asc, desc)
 /v1/payloads/{payload_id}
+/v1/stats
+	?stat=<string>[count, percentage]
+	?set_constraint=<string>[service, source, account, payload_id, inventory_id, system_id, status, status_msg] (Given in conjunction with a parameter from below to narrow the range on which the stat is calculated [i.e. percentage of payloads belonging to account 'test' with system_id '1'])
+	?status=<string>(The status as given on the Payload.)
+	?service=<string>(The service that processed the Payload.)
+	?inventory_id=<string>(The Inventory ID, if received on the Payload.)
+	?account=<string>(An account number, if received on the Payload.)
+	?source=<string>(A source received by the Payload, usually indicated a third-party rule hit.)
+	?system_id=<string>(The Physical Machine ID if it was received on the Payload.)
+	?status_msg=<string>(A verbose status message given with the Payload.)
 ```
 
 
