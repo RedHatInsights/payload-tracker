@@ -137,6 +137,17 @@ paths:
         description: A unique value identifying this payload.
         required: true
         type: string
+  /stats:
+    get:
+      description: ''
+      parameters: []
+      responses:
+        '200':
+          description: 'successfully returned requested stats'
+          schema:
+            $ref: '#/definitions/StatsRetrieve'
+        '404':
+          $ref: '#/responses/NotFound'
 responses:
   NotFound:
     description: The specified resource was not found
@@ -193,3 +204,10 @@ definitions:
         type: string
         format: date-time
         readOnly: true
+  StatsRetrieve:
+    required:
+      - message
+    type: object
+    properties:
+      message:
+        type: string
