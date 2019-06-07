@@ -154,7 +154,50 @@ paths:
   /stats:
     get:
       description: ''
-      parameters: []
+      parameters:
+        - name: stat
+          in: query
+          required: false
+          type: string
+          default: count
+          enum: [count, percentage]
+        - name: set_constraint
+          in: query
+          required: false
+          type: string
+          enum: [service, source, account, payload_id, inventory_id, system_id, status, status_msg]
+        - name: status
+          in: query
+          description: filter for status
+          required: false
+          type: string
+        - name: service
+          in: query
+          required: false
+          description: filter for service
+          type: string
+        - name: inventory_id
+          in: query
+          required: false
+          description: filter for inventory_id
+          type: string
+        - name: account
+          in: query
+          required: false
+          description: filter for account
+          type: string
+        - name: source
+          in: query
+          required: false
+          type: string
+        - name: system_id
+          in: query
+          required: false
+          type: string
+        - name: status_msg
+          in: query
+          required: false
+          type: string
       responses:
         '200':
           description: 'successfully returned requested stats'
