@@ -15,7 +15,7 @@ from db import init_db, db, Payload
 import tracker_logging
 
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
-BOOTSTRAP_SERVERS = os.environ.get('BOOTSTRAP_SERVERS', 'localhost:9092')
+BOOTSTRAP_SERVERS = os.environ.get('BOOTSTRAP_SERVERS', 'kafka:29092')
 GROUP_ID = os.environ.get('GROUP_ID', 'payload_tracker')
 THREAD_POOL_SIZE = int(os.environ.get('THREAD_POOL_SIZE', 8))
 PAYLOAD_TRACKER_TOPIC = os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker')
@@ -84,37 +84,35 @@ async def process_payload_status(json_msgs):
             # Check for missing keys
             expected_keys = ["service", "payload_id", "status"]
             missing_keys = [key for key in expected_keys if key not in data]
-            # set sanitized status to empty
-            sanitized_payload_status = {}
             if missing_keys:
                 logger.info(f"Payload {data} missing keys {missing_keys}. Expected {expected_keys}")
-                pass
-            else:
-                logger.info("Payload message has expected keys. Begin sanitizing")
-                # sanitize the payload status
-                sanitized_payload_status = {
-                    'service': data['service'],
-                    'payload_id': data['payload_id'],
-                    'status': data['status']
-                }
-                for key in ['inventory_id', 'system_id', 'status_msg', 'source', 'account']:
-                    if key in data:
-                        sanitized_payload_status[key] = data[key]
+                continue
 
-                if 'date' in data:
-                    try:
-                        sanitized_payload_status['date'] = parser.parse(data['date'])
-                    except:
-                        the_error = traceback.format_exc()
-                        logger.error(f"Error parsing date: {the_error}")
-            if sanitized_payload_status:
-                logger.info(f"Sanitized Payload for DB {sanitized_payload_status}")
-                # insert into database
-                async with db.transaction():
-                    payload_to_create = Payload(**sanitized_payload_status)
-                    created_payload = await payload_to_create.create()
-                    dump = created_payload.dump()
-                    logger.info(f"DB Transaction {created_payload} - {dump}")
+            logger.info("Payload message has expected keys. Begin sanitizing")
+            # sanitize the payload status
+            sanitized_payload_status = {
+                'service': data['service'],
+                'payload_id': data['payload_id'],
+                'status': data['status']
+            }
+            for key in ['inventory_id', 'system_id', 'status_msg', 'source', 'account']:
+                if key in data:
+                    sanitized_payload_status[key] = data[key]
+
+            if 'date' in data:
+                try:
+                    sanitized_payload_status['date'] = parser.parse(data['date'])
+                except:
+                    the_error = traceback.format_exc()
+                    logger.error(f"Error parsing date: {the_error}")
+
+            logger.info(f"Sanitized Payload for DB {sanitized_payload_status}")
+            # insert into database
+            async with db.transaction():
+                payload_to_create = Payload(**sanitized_payload_status)
+                created_payload = await payload_to_create.create()
+                dump = created_payload.dump()
+                logger.info(f"DB Transaction {created_payload} - {dump}")
 
         else:
             continue
