@@ -6,8 +6,7 @@ Create Date: 2019-06-05 08:48:48.185581
 
 """
 from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
+
 
 # revision identifiers, used by Alembic.
 revision = 'ae8f0f156ca6'
@@ -20,6 +19,7 @@ def upgrade():
     op.alter_column('payloads', 'source', nullable=True)
     op.alter_column('payloads', 'account', nullable=True)
     op.alter_column('payloads', 'status', nullable=False)
+
 
 def downgrade():
     pass
