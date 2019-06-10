@@ -1,9 +1,9 @@
 import json
 import pytest
-import asyncio
 
 from db import db
 from app import process_payload_status
+
 
 @pytest.mark.asyncio
 async def test_process_payload_status_missing_expected_key(mocker):
@@ -16,8 +16,10 @@ async def test_process_payload_status_missing_expected_key(mocker):
         def __init__(self):
             self.value = self.create_value(payload)
             self.topic = "payload_tracker"
+
         def __iter__(self):
             yield self
+
         def create_value(self, payload):
             try:
                 return json.dumps(payload)

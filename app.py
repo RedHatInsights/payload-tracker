@@ -1,23 +1,21 @@
 import os
-import datetime
 from dateutil import parser
 import traceback
 import json
 
 from aiokafka import AIOKafkaConsumer
 from kafkahelpers import ReconnectingClient
-from prometheus_client import start_http_server, Counter, Enum, Gauge, Histogram, Info
+from prometheus_client import start_http_server, Info
 from bounded_executor import BoundedExecutor
 import asyncio
 import connexion
 from connexion.resolver import RestyResolver
 
-import config
 from db import init_db, db, Payload
 import tracker_logging
 
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
-BOOTSTRAP_SERVERS = os.environ.get('BOOTSTRAP_SERVERS', 'kafka:29092')
+BOOTSTRAP_SERVERS = os.environ.get('BOOTSTRAP_SERVERS', 'localhost:9092')
 GROUP_ID = os.environ.get('GROUP_ID', 'payload_tracker')
 THREAD_POOL_SIZE = int(os.environ.get('THREAD_POOL_SIZE', 8))
 PAYLOAD_TRACKER_TOPIC = os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker')
@@ -86,7 +84,7 @@ async def process_payload_status(json_msgs):
             # Check for missing keys
             expected_keys = ["service", "payload_id", "status"]
             missing_keys = [key for key in expected_keys if key not in data]
-            #set sanitized status to empty
+            # set sanitized status to empty
             sanitized_payload_status = {}
             if missing_keys:
                 logger.info(f"Payload {data} missing keys {missing_keys}. Expected {expected_keys}")
@@ -109,7 +107,6 @@ async def process_payload_status(json_msgs):
                     except:
                         the_error = traceback.format_exc()
                         logger.error(f"Error parsing date: {the_error}")
-                        
             if sanitized_payload_status:
                 logger.info(f"Sanitized Payload for DB {sanitized_payload_status}")
                 # insert into database
@@ -142,6 +139,7 @@ def setup_api():
     app = connexion.AioHttpApp(__name__, specification_dir='swagger/')
     app.add_api('api.spec.yaml', resolver=RestyResolver('api'))
     return app
+
 
 def start_prometheus():
     start_http_server(PROMETHEUS_PORT)
@@ -184,4 +182,4 @@ if __name__ == "__main__":
         the_error = traceback.format_exc()
         logger.error(f"Failed starting Payload Tracker with Error: {the_error}")
         # Shut down loop
-        loop.stop()   
+        loop.stop()

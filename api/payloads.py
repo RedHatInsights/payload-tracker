@@ -1,6 +1,4 @@
-import asyncio
-
-from db import Payload, db
+from db import Payload
 import responses
 
 

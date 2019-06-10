@@ -1,7 +1,7 @@
 """create payload table
 
 Revision ID: c730d238f517
-Revises: 
+Revises:
 Create Date: 2019-04-24 12:02:55.233608
 
 """
@@ -14,6 +14,7 @@ revision = 'c730d238f517'
 down_revision = None
 branch_labels = None
 depends_on = None
+
 
 def upgrade():
     op.create_table('payloads',
