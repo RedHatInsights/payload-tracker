@@ -9,7 +9,6 @@ from gino import Gino
 config = context.config
 
 
-
 db_user = os.environ.get('DB_USER', 'payloadtracker')
 db_password = os.environ.get('DB_PASSWORD', 'payloadtracker')
 db_host = os.environ.get('DB_HOST', 'localhost')

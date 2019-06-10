@@ -1,18 +1,16 @@
 import os
-import datetime
 from dateutil import parser
 import traceback
 import json
 
 from aiokafka import AIOKafkaConsumer
 from kafkahelpers import ReconnectingClient
-from prometheus_client import start_http_server, Counter, Enum, Gauge, Histogram, Info
+from prometheus_client import start_http_server, Info
 from bounded_executor import BoundedExecutor
 import asyncio
 import connexion
 from connexion.resolver import RestyResolver
 
-import config
 from db import init_db, db, Payload
 import tracker_logging
 
@@ -88,7 +86,7 @@ async def process_payload_status(json_msgs):
             missing_keys = [key for key in expected_keys if key not in data]
             if missing_keys:
                 logger.info(f"Payload {data} missing keys {missing_keys}. Expected {expected_keys}")
-                pass
+                continue
 
             logger.info("Payload message has expected keys. Begin sanitizing")
             # sanitize the payload status
@@ -140,6 +138,7 @@ def setup_api():
     app.add_api('api.spec.yaml', resolver=RestyResolver('api'))
     return app
 
+
 def start_prometheus():
     start_http_server(PROMETHEUS_PORT)
 
@@ -181,4 +180,4 @@ if __name__ == "__main__":
         the_error = traceback.format_exc()
         logger.error(f"Failed starting Payload Tracker with Error: {the_error}")
         # Shut down loop
-        loop.stop()   
+        loop.stop()

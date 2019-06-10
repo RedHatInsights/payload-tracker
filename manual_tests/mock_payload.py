@@ -1,7 +1,7 @@
 import os
 import json
 import datetime
-from confluent_kafka import Producer, KafkaError
+from confluent_kafka import Producer
 
 
 def produceMessageCallback(err, msg):

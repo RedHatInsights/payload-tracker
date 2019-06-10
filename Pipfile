@@ -17,6 +17,8 @@ gino = "*"
 alembic = "*"
 aiohttp = "*"
 aiohttp-jinja2 = "*"
+pytest = "*"
+pytest-asyncio = "*"
 
 [dev-packages]
 pytest = "*"
@@ -33,3 +35,5 @@ python_version = "3.6"
 [scripts]
 server = "python app.py"
 migrate = "alembic upgrade head"
+tests = "pipenv run python -m pytest --log-cli-level=debug --junitxml=junit.xml --cov-config=.coveragerc --cov=. --cov-report html tests/ -s -v"
+linter = "flake8 . --output-file lint-results.txt"
