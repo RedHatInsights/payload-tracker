@@ -24,7 +24,7 @@ payload_info = {
 
 
 print("Posting payload status")
-p = Producer({'bootstrap.servers': os.environ.get('BOOTSTRAP_SERVERS', 'localhost:9092')})
+p = Producer({'bootstrap.servers': os.environ.get('BOOTSTRAP_SERVERS', 'localhost:29092')})
 p.poll(0)
 p.produce(os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker'),
           json.dumps(payload_info), callback=produceMessageCallback)
