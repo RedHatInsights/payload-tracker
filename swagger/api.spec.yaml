@@ -151,7 +151,7 @@ paths:
           in: query
           required: false
           type: string
-          enum: [service, source, account, payload_id, inventory_id, system_id, status, status_msg]
+          enum: [service, source, account, payload_id, inventory_id, system_id, status, status_msg, date, created_at]
         - name: status
           in: query
           description: filter for status
@@ -184,6 +184,46 @@ paths:
           in: query
           required: false
           type: string
+        - name: date_lt
+          in: query
+          required: false
+          type: string
+          format: date-time
+        - name: date_lte
+          in: query
+          required: false
+          type: string
+          format: date-time
+        - name: date_gt
+          in: query
+          required: false
+          type: string
+          format: date-time
+        - name: date_gte
+          in: query
+          required: false
+          type: string
+          format: date-time
+        - name: created_at_lt
+          in: query
+          required: false
+          type: string
+          format: date-time
+        - name: created_at_lte
+          in: query
+          required: false
+          type: string
+          format: date-time
+        - name: created_at_gt
+          in: query
+          required: false
+          type: string
+          format: date-time
+        - name: created_at_gte
+          in: query
+          required: false
+          type: string
+          format: date-time
       responses:
         '200':
           description: 'successfully returned requested stats'
