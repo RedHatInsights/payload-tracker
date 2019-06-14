@@ -143,7 +143,7 @@ paths:
         required: false
         type: string
         default: date
-        enum: [service, source, account, payload_id, inventory_id, system_id, status, status_msg, date, created_at]
+        enum: [service, source, status, status_msg, date, created_at]
       - name: sort_dir
         in: query
         description: Direction to sort
