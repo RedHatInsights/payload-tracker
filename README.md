@@ -41,6 +41,8 @@ Please see the Swagger Spec for API Endpoints. The API Swagger Spec is located i
 	?created_at_gte=<string>(YYYY-MM-DD)
 	?sort_dir=<string>(asc, desc)
 /v1/payloads/{payload_id}
+	?sort_by=<string>[service, source, status, status_msg, date]
+	?sort_dir=<string>(asc, desc)
 ```
 
 
