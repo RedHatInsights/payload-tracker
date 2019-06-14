@@ -1,17 +1,20 @@
 import operator
+import logging
 from dateutil import parser
 
 import responses
+import settings
 from db import db, Payload
+from api.payloads import _get_query, _get_filters, _get_date, _get_date_group_fns
 
+logger = logging.getLogger(settings.APP_NAME)
 
 async def search(*args, **kwargs):
-    payload_query = Payload.query
+    logger.debug(f"Stats.search({args}, {kwargs})")
+    payload_query = _get_query()
+
     stat_funcs = {"count": _count, "percentage": _percentage}
-    basic_eq_filters = ['status', 'service', 'inventory_id', 'account',
-                        'source', 'system_id', 'status_msg']
-    date_group_fns = {'_lt': operator.lt, '_lte': operator.le,
-                      '_gt': operator.gt, '_gte': operator.ge}
+    date_group_fns = _get_date_group_fns()
     func_params = {}
 
     func = stat_funcs[kwargs['stat']]
@@ -35,19 +38,8 @@ async def search(*args, **kwargs):
         payload_dump = [payload.dump() for payload in await constraint_query.gino.all()]
         func_params['set_size'] = len(payload_dump)
 
-    for search_param_key in kwargs:
-        if search_param_key in basic_eq_filters:
-            search_param_value = kwargs[search_param_key]
-            payload_query.append_whereclause(
-                getattr(Payload, search_param_key) == search_param_value)
-
-    for date_field in ['date', 'created_at']:
-        for date_group_str, date_group_fn in date_group_fns.items():
-            if date_field + date_group_str in kwargs:
-                the_date = parser.parse(kwargs[date_field + date_group_str])
-                payload_query.append_whereclause(
-                    date_group_fn(getattr(Payload, date_field), the_date)
-                )
+    payload_query = _get_filters(kwargs, payload_query)
+    payload_query = _get_date(kwargs, payload_query)
 
     payloads = await payload_query.gino.all()
     payloads_dump = [payload.dump() for payload in payloads]
@@ -60,14 +52,14 @@ async def search(*args, **kwargs):
 
 def _count(params):
     payload = params['payload']
-    return {"COUNT": len(payload)}
+    return {"count": len(payload)}
 
 
 def _percentage(params):
     payload = params['payload']
     set_size = params['set_size']
     try:
-        percent = {"Percentage": (len(payload) / set_size)}
+        percent = {"percentage": (len(payload) / set_size)}
     except:
         raise ValueError("Cannot divide by zero, dataset must be non-empty")
     else:
