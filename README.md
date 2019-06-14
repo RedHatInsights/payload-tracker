@@ -53,6 +53,14 @@ Please see the Swagger Spec for API Endpoints. The API Swagger Spec is located i
 	?source=<string>(A source received by the Payload, usually indicated a third-party rule hit.)
 	?system_id=<string>(The Physical Machine ID if it was received on the Payload.)
 	?status_msg=<string>(A verbose status message given with the Payload.)
+	?date_lt=<string>(YYYY-MM-DD)
+	?date_lte=<string>(YYYY-MM-DD)
+	?date_gt=<string>(YYYY-MM-DD)
+	?date_gte=<string>(YYYY-MM-DD)
+	?created_at_lt=<string>(YYYY-MM-DD)
+	?created_at_lte=<string>(YYYY-MM-DD)
+	?created_at_gt=<string>(YYYY-MM-DD)
+	?created_at_gte=<string>(YYYY-MM-DD)
 ```
 
 

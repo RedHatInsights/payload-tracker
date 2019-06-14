@@ -92,5 +92,4 @@ async def get(payload_id):
     if payloads is None:
         return responses.not_found()
     else:
-        payload_dump = [payload.dump() for payload in payloads]
         return responses.get(payload_dump)
