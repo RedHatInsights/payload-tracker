@@ -2,6 +2,10 @@ from db import Payload, db
 from dateutil import parser
 import responses
 import operator
+import logging
+import settings
+
+logger = logging.getLogger(settings.APP_NAME)
 
 
 async def search(*args, **kwargs):
@@ -38,14 +42,17 @@ async def search(*args, **kwargs):
         return responses.get(payloads_dump)
 
 
-async def _get_payloads(payload_id):
-    return await Payload.query.where(Payload.payload_id == payload_id).gino.all()
+async def get(payload_id, *args, **kwargs):
+    logger.debug(f"Payloads.get({payload_id}, {args}, {kwargs})")
+    sort_func = getattr(db, kwargs['sort_dir'])
+    payloads = await Payload.query.where(
+        Payload.payload_id == payload_id
+    ).order_by(
+        sort_func(kwargs['sort_by'])
+    ).gino.all()
 
-
-async def get(payload_id):
-    payloads = await _get_payloads(payload_id)
-    payload_dump = [payload.dump() for payload in payloads]
     if payloads is None:
         return responses.not_found()
     else:
+        payload_dump = [payload.dump() for payload in payloads]
         return responses.get(payload_dump)
