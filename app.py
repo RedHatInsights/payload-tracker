@@ -9,6 +9,7 @@ from prometheus_client import start_http_server, Info
 from bounded_executor import BoundedExecutor
 import asyncio
 import connexion
+import socketio
 from connexion.resolver import RestyResolver
 
 from db import init_db, db, Payload
@@ -65,6 +66,19 @@ kafka_consumer = AIOKafkaConsumer(
 )
 CONSUMER = ReconnectingClient(kafka_consumer, "consumer")
 
+# Setup sockets
+sio = socketio.AsyncServer(async_mode='aiohttp')
+
+
+@sio.event
+async def connect(sid, environ):
+    logger.info('Socket connected: %s', sid)
+
+
+@sio.event
+async def disconnect(sid):
+    logger.info('Socket disconnected: %s', sid)
+
 
 async def process_payload_status(json_msgs):
     logger.info(f"Processing messages: {json_msgs}")
@@ -113,6 +127,9 @@ async def process_payload_status(json_msgs):
                 created_payload = await payload_to_create.create()
                 dump = created_payload.dump()
                 logger.info(f"DB Transaction {created_payload} - {dump}")
+                dump['date'] = str(dump['date'])
+                dump['created_at'] = str(dump['created_at'])
+                await sio.emit('payload', dump)
 
         else:
             continue
@@ -172,6 +189,10 @@ if __name__ == "__main__":
         # setup http app and db
         logger.info("Setting up Database")
         loop.create_task(setup_db())
+
+        # setup sockets
+        logger.info("Setting up sockets")
+        sio.attach(app.app)
 
         # loops
         logger.info("Running...")
