@@ -52,7 +52,7 @@ def create(body):
 
 
 def search(count, entities):
-    return _response(data={'count': count, 'results': entities}, status=HTTPStatus.OK)
+    return _response(data={'count': count, 'data': entities}, status=HTTPStatus.OK)
 
 
 def get(entity):

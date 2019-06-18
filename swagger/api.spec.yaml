@@ -115,9 +115,19 @@ paths:
         '200':
           description: ''
           schema:
-            type: array
-            items:
-              $ref: '#/definitions/PayloadRetrieve'
+            type: object
+            required:
+              - count
+              - data
+            properties:
+              total:
+                type: integer
+                description: Total number of payloads with filters only
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/PayloadRetrieve'
+                description: List of payloads based on the filters, page size and offset
         '404':
           $ref: '#/responses/NotFound'
   /payloads/{payload_id}:
