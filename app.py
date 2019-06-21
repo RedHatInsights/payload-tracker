@@ -95,6 +95,12 @@ async def process_payload_status(json_msgs):
         if data:
             logger.info("Payload message processed as JSON.")
 
+            # HACK: For now just copy in request_id (if present) as payload_id
+            # At some point we need to redo the verbiage terminology
+            # payload_id (legacy) and request_id (new) are synonymous
+            if 'request_id' in data:
+                data['payload_id'] = data['request_id']
+
             # Check for missing keys
             expected_keys = ["service", "payload_id", "status"]
             missing_keys = [key for key in expected_keys if key not in data]

@@ -1,6 +1,7 @@
 import os
 import json
 import datetime
+import time
 from confluent_kafka import Producer
 
 
@@ -15,17 +16,68 @@ def produceMessageCallback(err, msg):
         print('Message delivered to {} [{}]'.format(msg.topic(), msg.partition()))
 
 
-payload_info = {
-       'service': 'test-service',
+payloads = [
+{
+       'service': 'ingress',
        'payload_id': '12345',
        'status': 'received',
        'date': str(datetime.datetime.now())
-}
+},
+{
+       'service': 'ingress',
+       'payload_id': '12345',
+       'status': 'processing',
+       'date': str(datetime.datetime.now())
+},
+{
+       'service': 'ingress',
+       'payload_id': '12345',
+       'status': 'success',
+       'date': str(datetime.datetime.now())
+},
+{
+       'service': 'ingress',
+       'payload_id': '12345',
+       'status': 'received',
+       'date': str(datetime.datetime.now())
+},
+{
+       'service': 'pup',
+       'payload_id': '12345',
+       'status': 'processing',
+       'date': str(datetime.datetime.now())
+},
+{
+       'service': 'pup',
+       'payload_id': '12345',
+       'status': 'success',
+       'date': str(datetime.datetime.now())
+},{
+       'service': 'advisor',
+       'payload_id': '12345',
+       'status': 'received',
+       'date': str(datetime.datetime.now())
+},
+{
+       'service': 'advisor',
+       'payload_id': '12345',
+       'status': 'processing',
+       'date': str(datetime.datetime.now())
+},
+{
+       'service': 'advisor',
+       'payload_id': '12345',
+       'status': 'success',
+       'date': str(datetime.datetime.now())
+},
+]
 
 
 print("Posting payload status")
 p = Producer({'bootstrap.servers': os.environ.get('BOOTSTRAP_SERVERS', 'localhost:29092')})
-p.poll(0)
-p.produce(os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker'),
-          json.dumps(payload_info), callback=produceMessageCallback)
-p.flush()
+for payload in payloads:
+  p.poll(0)
+  p.produce(os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker'),
+            json.dumps(payload), callback=produceMessageCallback)
+  p.flush()
+  time.sleep(1)
