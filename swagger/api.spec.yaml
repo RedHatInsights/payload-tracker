@@ -164,7 +164,14 @@ paths:
   /stats:
     get:
       description: ''
-      parameters: []
+      parameters:
+        - name: stat
+          in: query
+          description: Stat to use
+          required: false
+          type: string
+          default: SuccessRate
+          enum: [SuccessRate]
       responses:
         '200':
           description: 'successfully returned requested stats'
