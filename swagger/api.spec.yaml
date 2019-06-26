@@ -30,7 +30,7 @@ paths:
           description: Attribute to sort results by
           required: false
           type: string
-          default: payload_id
+          default: date
           enum: [service, source, account, payload_id, inventory_id, system_id, status, status_msg, date, created_at]
         - name: status
           in: query
@@ -109,7 +109,7 @@ paths:
           description: Direction to sort
           required: false
           type: string
-          default: asc
+          default: desc
           enum: [asc, desc]
       responses:
         '200':
