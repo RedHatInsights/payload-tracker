@@ -1,6 +1,8 @@
 import responses
 import logging
 import settings
+import datetime
+import operator
 from db import Payload
 
 logger = logging.getLogger(settings.APP_NAME)
@@ -13,6 +15,13 @@ async def search(*args, **kwargs):
     func_params = {}
 
     payload_query = Payload.query
+
+    # Only get the past 24 hours for right now
+    # Trying to calculate this against the whole database is too much
+    twenty_four_hours = datetime.datetime.now() - datetime.timedelta(hours = 24)
+    payload_query.append_whereclause(
+        operator.ge(Payload.date, twenty_four_hours)
+    )
 
     payloads = await payload_query.gino.all()
     payloads_dump = [payload.dump() for payload in payloads]
