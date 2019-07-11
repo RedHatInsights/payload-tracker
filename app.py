@@ -5,7 +5,7 @@ import json
 
 from aiokafka import AIOKafkaConsumer
 from kafkahelpers import ReconnectingClient
-from prometheus_client import start_http_server, Info
+from prometheus_client import start_http_server, Info, Counter
 from bounded_executor import BoundedExecutor
 import asyncio
 import connexion
@@ -25,6 +25,9 @@ API_PORT = os.environ.get('API_PORT', 8080)
 # Prometheus configuration
 DISABLE_PROMETHEUS = True if os.environ.get('DISABLE_PROMETHEUS') == "True" else False
 PROMETHEUS_PORT = os.environ.get('PROMETHEUS_PORT', 8000)
+SERVICE_STATUS_COUNTER = Counter('payload_tracker_service_status_counter',
+                                 'Counters for services and their various statuses',
+                                 ['service', 'status'])
 
 PAYLOAD_TRACKER_SERVICE_VERSION = Info(
     'payload_tracker_service_version',
@@ -107,6 +110,9 @@ async def process_payload_status(json_msgs):
             if missing_keys:
                 logger.info(f"Payload {data} missing keys {missing_keys}. Expected {expected_keys}")
                 continue
+
+            # Increment Prometheus Metrics
+            SERVICE_STATUS_COUNTER.labels(service=data['service'], status=data['status']).inc()
 
             logger.info("Payload message has expected keys. Begin sanitizing")
             # sanitize the payload status
