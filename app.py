@@ -14,6 +14,7 @@ from connexion.resolver import RestyResolver
 
 from db import init_db, db, Payload
 import tracker_logging
+from kibana_courier import KibanaCourier
 
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 BOOTSTRAP_SERVERS = os.environ.get('BOOTSTRAP_SERVERS', 'localhost:29092')
@@ -21,6 +22,8 @@ GROUP_ID = os.environ.get('GROUP_ID', 'payload_tracker')
 THREAD_POOL_SIZE = int(os.environ.get('THREAD_POOL_SIZE', 8))
 PAYLOAD_TRACKER_TOPIC = os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker')
 API_PORT = os.environ.get('API_PORT', 8080)
+KIBANA_URL = os.environ.get('KIBANA_URL')
+KIBANA_COOKIES = {'_oauth_proxy': os.environ.get('KIBANA_COOKIES')}
 
 # Prometheus configuration
 DISABLE_PROMETHEUS = True if os.environ.get('DISABLE_PROMETHEUS') == "True" else False
@@ -68,6 +71,9 @@ CONSUMER = ReconnectingClient(kafka_consumer, "consumer")
 
 # Setup sockets
 sio = socketio.AsyncServer(async_mode='aiohttp')
+
+# Setup Kibana courier
+query_kibana = KibanaCourier(loop, logger, KIBANA_URL, KIBANA_COOKIES)
 
 
 @sio.event
@@ -161,6 +167,12 @@ def setup_api():
     app.add_api('api.spec.yaml', resolver=RestyResolver('api'))
     return app
 
+async def setup_periodic_kibana_query():
+    while True:
+        logger.info("Querying Kibana for new payloads")
+        await query_kibana()
+        await asyncio.sleep(30, loop=loop)
+
 
 def start_prometheus():
     start_http_server(PROMETHEUS_PORT)
@@ -178,6 +190,8 @@ if __name__ == "__main__":
         logger.info("Using PAYLOAD_TRACKER_TOPIC: %s", PAYLOAD_TRACKER_TOPIC)
         logger.info("Using DISABLE_PROMETHEUS: %s", DISABLE_PROMETHEUS)
         logger.info("Using PROMETHEUS_PORT: %s", PROMETHEUS_PORT)
+        logger.info("Using Kibana URL: %s", KIBANA_URL)
+        logger.info("Using Kibana Cookies: %s", KIBANA_COOKIES)
 
         # setup the connexion app
         logger.info("Setting up REST API")
@@ -199,6 +213,11 @@ if __name__ == "__main__":
         # setup sockets
         logger.info("Setting up sockets")
         sio.attach(app.app)
+
+        # setup kibana query
+        if os.environ.get('KIBANA_URL'):
+            logger.info("Setting up Kibana Courier")
+            loop.create_task(setup_periodic_kibana_query())
 
         # loops
         logger.info("Running...")
