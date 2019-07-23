@@ -28,6 +28,7 @@ class KibanaCourier:
         self.loop = loop
         self.logger = logger
         self.session = aiohttp.ClientSession(headers=KIBANA_HEADERS, cookies=cookies)
+        self.metric_function = check_payload_status_metrics
 
     def _set_date_time(self):
         now = datetime.utcnow()
@@ -70,7 +71,8 @@ class KibanaCourier:
                 }
 
                 # increment prometheus metrics
-                check_payload_status_metrics(payload['req_id'], 'legacy-insights', str(payload['statusCode']))
+                self.logger.info
+                self.metric_function(payload['req_id'], 'legacy-insights', str(payload['statusCode']))
 
                 if '@timestamp' in payload:
                     try:
