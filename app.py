@@ -113,8 +113,6 @@ def check_payload_status_metrics(payload_id, service, status):
             logger.info(f"Could not delete payload status cache for "
                         f"{payload_id} - {service} - {status}")
 
-    logger.info(f"Payload Statuses: {payload_statuses}")
-
 
 # Setup Kibana courier
 query_kibana = KibanaCourier(loop, logger, KIBANA_URL, KIBANA_COOKIES, check_payload_status_metrics)
