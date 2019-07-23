@@ -85,8 +85,39 @@ sio = socketio.AsyncServer(async_mode='aiohttp')
 # }
 payload_statuses = {}
 
+
+def check_payload_status_metrics(payload_id, service, status):
+    unique_payload_service_and_status = True
+
+    if payload_id in payload_statuses:
+        if service in payload_statuses[payload_id]:
+            if status in payload_statuses[payload_id][service]:
+                unique_payload_service_and_status = False
+        else:
+            payload_statuses[payload_id][service] = list()
+    else:
+        payload_statuses[payload_id] = {}
+        payload_statuses[payload_id][service] = list()
+
+    if unique_payload_service_and_status:
+        payload_statuses[payload_id][service].append(status)
+        SERVICE_STATUS_COUNTER.labels(service=service, status=status).inc()
+
+    if status in ['error', 'success']:
+        try:
+            if service == 'insights-advisor-service':
+                del payload_statuses[payload_id]
+            else:
+                del payload_statuses[payload_id][service]
+        except:
+            logger.info(f"Could not delete payload status cache for "
+                        f"{payload_id} - {service} - {status}")
+
+    logger.info(f"Payload Statuses: {payload_statuses}")
+
+
 # Setup Kibana courier
-query_kibana = KibanaCourier(loop, logger, KIBANA_URL, KIBANA_COOKIES)
+query_kibana = KibanaCourier(loop, logger, KIBANA_URL, KIBANA_COOKIES, check_payload_status_metrics)
 
 
 @sio.event
@@ -161,36 +192,6 @@ async def process_payload_status(json_msgs):
 
         else:
             continue
-
-
-def check_payload_status_metrics(payload_id, service, status):
-    unique_payload_service_and_status = True
-
-    if payload_id in payload_statuses:
-        if service in payload_statuses[payload_id]:
-            if status in payload_statuses[payload_id][service]:
-                unique_payload_service_and_status = False
-        else:
-            payload_statuses[payload_id][service] = list()
-    else:
-        payload_statuses[payload_id] = {}
-        payload_statuses[payload_id][service] = list()
-
-    if unique_payload_service_and_status:
-        payload_statuses[payload_id][service].append(status)
-        SERVICE_STATUS_COUNTER.labels(service=service, status=status).inc()
-
-    if status in ['error', 'success']:
-        try:
-            if service == 'insights-advisor-service':
-                del payload_statuses[payload_id]
-            else:
-                del payload_statuses[payload_id][service]
-        except:
-            logger.info(f"Could not delete payload status cache for "
-                        f"{payload_id} - {service} - {status}")
-
-    logger.info(f"Payload Statuses: {payload_statuses}")
 
 
 async def consume(client):

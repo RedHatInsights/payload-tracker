@@ -9,7 +9,6 @@ from dateutil import parser
 from concurrent.futures import ALL_COMPLETED
 
 from db import db, Payload
-from app import check_payload_status_metrics
 
 
 KIBANA_POST_DATA = {"from": 0, "size": 10000,
@@ -23,7 +22,7 @@ KIBANA_HEADERS = {"Content-Type": "application/json",
 
 
 class KibanaCourier:
-    def __init__(self, loop, logger, url, cookies):
+    def __init__(self, loop, logger, url, cookies, check_payload_status_metrics):
         self.data = {'payloads': []}
         self.url = url
         self.loop = loop
