@@ -9,6 +9,7 @@ from dateutil import parser
 from concurrent.futures import ALL_COMPLETED
 
 from db import db, Payload
+from app import check_payload_status_metrics
 
 
 KIBANA_POST_DATA = {"from": 0, "size": 10000,
@@ -68,6 +69,9 @@ class KibanaCourier:
                     'status': str(payload['statusCode']),
                     'source': 'legacy-insights'
                 }
+
+                # increment prometheus metrics
+                check_payload_status_metrics(payload['req_id'], 'legacy-insights', str(payload['statusCode']))
 
                 if '@timestamp' in payload:
                     try:
