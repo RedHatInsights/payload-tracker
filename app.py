@@ -75,6 +75,16 @@ CONSUMER = ReconnectingClient(kafka_consumer, "consumer")
 # Setup sockets
 sio = socketio.AsyncServer(async_mode='aiohttp')
 
+# keep track of payloads and their statuses for prometheus metric counters
+# payload_statuses  = {
+#    '123456': {
+#       'ingress': ['received', 'processing', 'success'],
+#       'pup': ['received', 'processing', 'success'],
+#       'advisor': ['received', 'processing', 'success']
+#    }
+# }
+payload_statuses = {}
+
 # Setup Kibana courier
 query_kibana = KibanaCourier(loop, logger, KIBANA_URL, KIBANA_COOKIES)
 
@@ -118,7 +128,7 @@ async def process_payload_status(json_msgs):
                 continue
 
             # Increment Prometheus Metrics
-            SERVICE_STATUS_COUNTER.labels(service=data['service'], status=data['status']).inc()
+            check_payload_status_metrics(data['payload_id'], data['service'], data['status'])
 
             logger.info("Payload message has expected keys. Begin sanitizing")
             # sanitize the payload status
@@ -151,6 +161,36 @@ async def process_payload_status(json_msgs):
 
         else:
             continue
+
+
+def check_payload_status_metrics(payload_id, service, status):
+    unique_payload_service_and_status = True
+
+    if payload_id in payload_statuses:
+        if service in payload_statuses[payload_id]:
+            if status in payload_statuses[payload_id][service]:
+                unique_payload_service_and_status = False
+        else:
+            payload_statuses[payload_id][service] = list()
+    else:
+        payload_statuses[payload_id] = {}
+        payload_statuses[payload_id][service] = list()
+
+    if unique_payload_service_and_status:
+        payload_statuses[payload_id][service].append(status)
+        SERVICE_STATUS_COUNTER.labels(service=service, status=status).inc()
+
+    if status in ['error', 'success']:
+        try:
+            if service == 'insights-advisor-service':
+                del payload_statuses[payload_id]
+            else:
+                del payload_statuses[payload_id][service]
+        except:
+            logger.info(f"Could not delete payload status cache for "
+                        f"{payload_id} - {service} - {status}")
+
+    logger.info(f"Payload Statuses: {payload_statuses}")
 
 
 async def consume(client):

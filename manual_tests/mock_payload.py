@@ -36,7 +36,7 @@ payloads = [
        'date': str(datetime.datetime.now())
 },
 {
-       'service': 'ingress',
+       'service': 'pup',
        'payload_id': '12345',
        'status': 'received',
        'date': str(datetime.datetime.now())
@@ -53,19 +53,34 @@ payloads = [
        'status': 'success',
        'date': str(datetime.datetime.now())
 },{
-       'service': 'advisor',
+       'service': 'insights-advisor-service',
        'payload_id': '12345',
        'status': 'received',
        'date': str(datetime.datetime.now())
 },
 {
-       'service': 'advisor',
+       'service': 'insights-advisor-service',
        'payload_id': '12345',
        'status': 'processing',
+       'status_msg': 'analyzing archive',
        'date': str(datetime.datetime.now())
 },
 {
-       'service': 'advisor',
+       'service': 'insights-advisor-service',
+       'payload_id': '12345',
+       'status': 'processing',
+       'status_msg': 'generating reports',
+       'date': str(datetime.datetime.now())
+},
+{
+       'service': 'insights-advisor-service',
+       'payload_id': '12345',
+       'status': 'processing',
+       'status_msg': 'performing db operations',
+       'date': str(datetime.datetime.now())
+},
+{
+       'service': 'insights-advisor-service',
        'payload_id': '12345',
        'status': 'success',
        'date': str(datetime.datetime.now())
