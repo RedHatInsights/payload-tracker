@@ -159,7 +159,6 @@ async def process_payload_status(json_msgs):
             # make things lower-case
             data['service'] = data['service'].lower()
             data['status'] = data['status'].lower()
-            data['source'] = data['source'].lower()
 
             # Increment Prometheus Metrics
             check_payload_status_metrics(data['payload_id'], data['service'], data['status'])
