@@ -39,6 +39,7 @@ class KibanaCourier:
         self._set_date_time()
         async with self.session.post(self.url, data=json.dumps(KIBANA_POST_DATA)) as resp:
             status = resp.status
+            self.logger.info(f"Received status {status} from Kibana Query POST.")
             assert status == 200
             return await resp.json()
 
