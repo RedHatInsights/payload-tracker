@@ -70,7 +70,6 @@ class KibanaCourier:
                 }
 
                 # increment prometheus metrics
-                self.logger.info
                 self.metric_function(payload['req_id'], 'legacy-insights', str(payload['statusCode']))
 
                 if '@timestamp' in payload:
