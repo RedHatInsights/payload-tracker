@@ -23,7 +23,6 @@ KIBANA_HEADERS = {"Content-Type": "application/json",
 
 class KibanaCourier:
     def __init__(self, loop, logger, url, cookies, check_payload_status_metrics):
-        self.data = {'payloads': []}
         self.url = url
         self.loop = loop
         self.logger = logger
@@ -81,17 +80,14 @@ class KibanaCourier:
                         the_error = traceback.format_exc()
                         self.logger.error(f"Error parsing date: {the_error}")
 
-                self.data['payloads'].append(sanitized_payload_status)
-
-        for sanitized_payload_status in self.data['payloads']:
-            self.logger.info(f"Sanitized Payload for DB {sanitized_payload_status['payload_id']}")
-            async with db.transaction():
-                payload_to_create = Payload(**sanitized_payload_status)
-                created_payload = await payload_to_create.create()
-                dump = created_payload.dump()
-                self.logger.info(f"DB Transaction {created_payload} - {dump}")
-                dump['date'] = str(dump['date'])
-                dump['created_at'] = str(dump['created_at'])
+                self.logger.info(f"Sanitized Payload for DB {sanitized_payload_status['payload_id']}")
+                async with db.transaction():
+                    payload_to_create = Payload(**sanitized_payload_status)
+                    created_payload = await payload_to_create.create()
+                    dump = created_payload.dump()
+                    self.logger.info(f"DB Transaction {created_payload} - {dump}")
+                    dump['date'] = str(dump['date'])
+                    dump['created_at'] = str(dump['created_at'])
 
     def __del__(self):
         self.session.close()
