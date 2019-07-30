@@ -5,7 +5,7 @@ import json
 
 from aiokafka import AIOKafkaConsumer
 from kafkahelpers import ReconnectingClient
-from prometheus_client import start_http_server, Info, Counter
+from prometheus_client import start_http_server, Info, Counter, Summary
 from bounded_executor import BoundedExecutor
 import asyncio
 import connexion
@@ -31,6 +31,7 @@ PROMETHEUS_PORT = os.environ.get('PROMETHEUS_PORT', 8000)
 SERVICE_STATUS_COUNTER = Counter('payload_tracker_service_status_counter',
                                  'Counters for services and their various statuses',
                                  ['service', 'status'])
+UPLOAD_TIME_ELAPSED = Summary('payload_tracker_upload_time_elapsed', 'Tracks the elapsed upload time')
 
 PAYLOAD_TRACKER_SERVICE_VERSION = Info(
     'payload_tracker_service_version',
@@ -85,8 +86,13 @@ sio = socketio.AsyncServer(async_mode='aiohttp')
 # }
 payload_statuses = {}
 
+# payload_status_times = {
+#    '123456': {'start':12312412, 'stop': 12312123}
+# }
+payload_status_times = {}
 
-def check_payload_status_metrics(payload_id, service, status):
+
+def check_payload_status_metrics(payload_id, service, status, service_date=None):
     unique_payload_service_and_status = True
 
     if payload_id in payload_statuses:
@@ -112,6 +118,29 @@ def check_payload_status_metrics(payload_id, service, status):
         except:
             logger.info(f"Could not delete payload status cache for "
                         f"{payload_id} - {service} - {status}")
+
+    # at some point this should be ingress, however currently ingress is not integrated
+    #if service in ['ingress'] and status in ['received']:
+    try:
+        if service in ['advisor-pup'] and status in ['processing']:
+            payload_status_times[payload_id] = {}
+            payload_status_times[payload_id]['start'] = service_date
+        if service in ['insights-advisor-service'] and status in ['success']:
+            start = payload_status_times[payload_id]['start']
+            stop = service_date
+            elapsed = (stop - start).total_seconds()
+            logger.info(f"Subtracting {start} from {stop} to get {elapsed}")
+
+            payload_status_times[payload_id]['stop'] = stop
+            payload_status_times[payload_id]['elapsed'] = elapsed
+
+            UPLOAD_TIME_ELAPSED.observe(elapsed)
+
+            del payload_status_times[payload_id]
+    except:
+        logger.info(f"Could not update payload status upload time for "
+                    f"{payload_id} - {service} - {status}")
+
 
 
 # Setup Kibana courier
@@ -150,7 +179,7 @@ async def process_payload_status(json_msgs):
                 data['payload_id'] = data['request_id']
 
             # Check for missing keys
-            expected_keys = ["service", "payload_id", "status"]
+            expected_keys = ["service", "payload_id", "status", "date"]
             missing_keys = [key for key in expected_keys if key not in data]
             if missing_keys:
                 logger.info(f"Payload {data} missing keys {missing_keys}. Expected {expected_keys}")
@@ -159,9 +188,6 @@ async def process_payload_status(json_msgs):
             # make things lower-case
             data['service'] = data['service'].lower()
             data['status'] = data['status'].lower()
-
-            # Increment Prometheus Metrics
-            check_payload_status_metrics(data['payload_id'], data['service'], data['status'])
 
             logger.info("Payload message has expected keys. Begin sanitizing")
             # sanitize the payload status
@@ -180,6 +206,12 @@ async def process_payload_status(json_msgs):
                 except:
                     the_error = traceback.format_exc()
                     logger.error(f"Error parsing date: {the_error}")
+
+            # Increment Prometheus Metrics
+            check_payload_status_metrics(sanitized_payload_status['payload_id'],
+                                         sanitized_payload_status['service'],
+                                         sanitized_payload_status['status'],
+                                         sanitized_payload_status['date'])
 
             logger.info(f"Sanitized Payload for DB {sanitized_payload_status}")
             # insert into database
