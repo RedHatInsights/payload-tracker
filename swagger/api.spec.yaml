@@ -138,7 +138,21 @@ paths:
         '200':
           description: 'Get single payload successful response'
           schema:
-            $ref: '#/definitions/PayloadRetrieve'
+            type: object
+            required:
+              - data
+              - durations
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/PayloadRetrieve'
+                description: List of payloads based on the filters, page size and offset
+              durations:
+                type: object
+                items:
+                  $ref: '#/definitions/DurationsRetrieve'
+                description: Object with each service as a key and timedelta as an object
         '404':
             $ref: '#/responses/NotFound'
     parameters:
@@ -235,6 +249,13 @@ definitions:
         type: string
         format: date-time
         readOnly: true
+  DurationsRetrieve:
+    type: object
+    properties:
+      service:
+        type: string
+      timedelta:
+        type: string
   StatsRetrieve:
     required:
       - message
