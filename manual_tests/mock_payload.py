@@ -20,70 +20,54 @@ payloads = [
 {
        'service': 'ingress',
        'payload_id': '12345',
-       'status': 'received',
-       'date': str(datetime.datetime.now())
+       'status': 'received'
 },
 {
        'service': 'ingress',
        'payload_id': '12345',
-       'status': 'processing',
-       'date': str(datetime.datetime.now())
+       'status': 'processing'
 },
 {
        'service': 'ingress',
        'payload_id': '12345',
-       'status': 'success',
-       'date': str(datetime.datetime.now())
+       'status': 'success'
 },
 {
-       'service': 'pup',
+       'service': 'advisor-pup',
        'payload_id': '12345',
-       'status': 'received',
-       'date': str(datetime.datetime.now())
+       'status': 'processing'
 },
 {
-       'service': 'pup',
+       'service': 'advisor-pup',
        'payload_id': '12345',
-       'status': 'processing',
-       'date': str(datetime.datetime.now())
-},
-{
-       'service': 'pup',
-       'payload_id': '12345',
-       'status': 'success',
-       'date': str(datetime.datetime.now())
+       'status': 'success'
 },{
        'service': 'insights-advisor-service',
        'payload_id': '12345',
-       'status': 'received',
-       'date': str(datetime.datetime.now())
+       'status': 'received'
 },
 {
        'service': 'insights-advisor-service',
        'payload_id': '12345',
        'status': 'processing',
-       'status_msg': 'analyzing archive',
-       'date': str(datetime.datetime.now())
+       'status_msg': 'analyzing archive'
 },
 {
        'service': 'insights-advisor-service',
        'payload_id': '12345',
        'status': 'processing',
-       'status_msg': 'generating reports',
-       'date': str(datetime.datetime.now())
+       'status_msg': 'generating reports'
 },
 {
        'service': 'insights-advisor-service',
        'payload_id': '12345',
        'status': 'processing',
-       'status_msg': 'performing db operations',
-       'date': str(datetime.datetime.now())
+       'status_msg': 'performing db operations'
 },
 {
        'service': 'insights-advisor-service',
        'payload_id': '12345',
-       'status': 'success',
-       'date': str(datetime.datetime.now())
+       'status': 'success'
 },
 ]
 
@@ -91,6 +75,7 @@ payloads = [
 print("Posting payload status")
 p = Producer({'bootstrap.servers': os.environ.get('BOOTSTRAP_SERVERS', 'localhost:29092')})
 for payload in payloads:
+  payload['date'] = str(datetime.datetime.now())
   p.poll(0)
   p.produce(os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker'),
             json.dumps(payload), callback=produceMessageCallback)
