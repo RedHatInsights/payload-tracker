@@ -55,6 +55,10 @@ def search(count, entities):
     return _response(data={'count': count, 'data': entities}, status=HTTPStatus.OK)
 
 
+def get_with_duration(entities, durations):
+    return _response(data={'data': entities, 'duration': durations}, status=HTTPStatus.OK)
+
+
 def get(entity):
     return _response(data=entity, status=HTTPStatus.OK)
 

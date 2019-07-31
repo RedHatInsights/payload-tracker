@@ -54,6 +54,35 @@ async def search(*args, **kwargs):
         return responses.search(payloads_count, payloads_dump)
 
 
+def _get_durations(payloads):
+    services = set()
+    service_to_times = {}
+    service_to_duration = {}
+
+    for payload in payloads:
+        services.add(payload['service'])
+
+    for service in services:
+        for payload in payloads:
+            if payload['service'] == service:
+                if service in service_to_times:
+                    service_to_times[service].append(payload['date'])
+                else:
+                    service_to_times[service] = [payload['date']]
+
+    for service in services:
+        times = [time for time in service_to_times[service]]
+        times.sort()
+        if 'total' in service_to_duration.keys():
+            service_to_duration['total'] += times[-1] - times[0]
+        else:
+            service_to_duration['total'] = times[-1] - times[0]
+        service_to_duration[service] = str(times[-1] - times[0])
+    service_to_duration['total'] = str(service_to_duration['total'])
+
+    return service_to_duration
+
+
 async def get(payload_id, *args, **kwargs):
     logger.debug(f"Payloads.get({payload_id}, {args}, {kwargs})")
     sort_func = getattr(db, kwargs['sort_dir'])
@@ -67,4 +96,5 @@ async def get(payload_id, *args, **kwargs):
         return responses.not_found()
     else:
         payload_dump = [payload.dump() for payload in payloads]
-        return responses.get(payload_dump)
+        durations = _get_durations(payload_dump)
+        return responses.get_with_duration(payload_dump, durations)
