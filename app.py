@@ -204,7 +204,7 @@ async def process_payload_status(json_msgs):
 
             if 'date' in data:
                 try:
-                    sanitized_payload_status['date'] = default_tzinfo(parser.parse(data['date']), tzutc())
+                    sanitized_payload_status['date'] = default_tzinfo(parser.parse(data['date']), tzutc()).astimezone(tzutc())
                 except:
                     the_error = traceback.format_exc()
                     logger.error(f"Error parsing date: {the_error}")
