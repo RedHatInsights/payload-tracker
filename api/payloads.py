@@ -10,6 +10,9 @@ logger = logging.getLogger(settings.APP_NAME)
 
 async def search(*args, **kwargs):
 
+    # initialize connection
+    conn = await db.bind.acquire()
+
     # Base query
     payload_query = Payload.query
 
@@ -36,7 +39,7 @@ async def search(*args, **kwargs):
                 )
 
     # Get the count before we apply the page size and offset
-    payloads_count = await payload_query.alias().count().gino.scalar()
+    payloads_count = await conn.scalar(payload_query.alias().count())
 
     # Then apply page size and offset
     sort_func = getattr(db, kwargs['sort_dir'])
@@ -44,7 +47,7 @@ async def search(*args, **kwargs):
             kwargs['page'] * kwargs['page_size']).order_by(sort_func(kwargs['sort_by']))
 
     # Compile set of payloads from the database
-    payloads = await payload_query.gino.all()
+    payloads = await conn.all(payload_query)
     payloads_dump = [payload.dump() for payload in payloads]
 
     # Send results
@@ -84,13 +87,17 @@ def _get_durations(payloads):
 
 
 async def get(payload_id, *args, **kwargs):
+
+    # initialize connection
+    conn = await db.bind.acquire()
+
     logger.debug(f"Payloads.get({payload_id}, {args}, {kwargs})")
     sort_func = getattr(db, kwargs['sort_dir'])
-    payloads = await Payload.query.where(
+    payloads = await conn.all(Payload.query.where(
         Payload.payload_id == payload_id
     ).order_by(
         sort_func(kwargs['sort_by'])
-    ).gino.all()
+    ))
 
     if payloads is None:
         return responses.not_found()
