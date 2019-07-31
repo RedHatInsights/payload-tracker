@@ -27,8 +27,8 @@ class Payload(db.Model):
     system_id = db.Column(db.Unicode)
     status = db.Column(db.Unicode)
     status_msg = db.Column(db.Unicode)
-    date = db.Column(db.DateTime, timezone=True, server_default=sa.text("timezone('utc'::text, now())"))
-    created_at = db.Column(db.DateTime, timezone=True, server_default=sa.text("timezone('utc'::text, now())"))
+    date = db.Column(db.DateTime, timezone=True, server_default="timezone('utc'::text, now())")
+    created_at = db.Column(db.DateTime, timezone=True, server_default="timezone('utc'::text, now())")
 
     def dump(self):
         return {k: v for k, v in self.__values__.items() if v is not None}

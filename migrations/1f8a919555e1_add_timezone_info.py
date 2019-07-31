@@ -17,8 +17,8 @@ depends_on = None
 
 
 def upgrade():
-    op.alter_column('payloads', 'date', type_=sa.TIMESTAMP(timezone=True), server_default=sa.text("timezone('utc'::text, now())"))
-    op.alter_column('payloads', 'created_at', type_=sa.TIMESTAMP(timezone=True), server_default=sa.text("timezone('utc'::text, now())"))
+    op.alter_column('payloads', 'date', type_=sa.DateTime(timezone=True), server_default=sa.text("timezone('utc'::text, now())"))
+    op.alter_column('payloads', 'created_at', type_=sa.DateTime(timezone=True), server_default=sa.text("timezone('utc'::text, now())"))
 
 
 def downgrade():
