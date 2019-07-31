@@ -1,5 +1,7 @@
 import os
 from dateutil import parser
+from dateutil.utils import default_tzinfo
+from dateutil.tz import tzutc
 import traceback
 import json
 
@@ -202,7 +204,7 @@ async def process_payload_status(json_msgs):
 
             if 'date' in data:
                 try:
-                    sanitized_payload_status['date'] = parser.parse(data['date'])
+                    sanitized_payload_status['date'] = default_tzinfo(parser.parse(data['date']), tzutc())
                 except:
                     the_error = traceback.format_exc()
                     logger.error(f"Error parsing date: {the_error}")
