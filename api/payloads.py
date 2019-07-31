@@ -58,27 +58,32 @@ def _get_durations(payloads):
     services = set()
     service_to_times = {}
     service_to_duration = {}
+    all_times = []
 
     for payload in payloads:
         services.add(payload['service'])
 
     for service in services:
         for payload in payloads:
+            all_times.append(payload['date'])
             if payload['service'] == service:
                 if service in service_to_times:
                     service_to_times[service].append(payload['date'])
                 else:
                     service_to_times[service] = [payload['date']]
+    
+    all_times.sort()
+    service_to_duration['total_time'] = str(all_times[-1] - all_times[0])
 
     for service in services:
         times = [time for time in service_to_times[service]]
         times.sort()
-        if 'total' in service_to_duration.keys():
-            service_to_duration['total'] += times[-1] - times[0]
+        if 'total_time_in_services' in service_to_duration.keys():
+            service_to_duration['total_time_in_services'] += times[-1] - times[0]
         else:
-            service_to_duration['total'] = times[-1] - times[0]
+            service_to_duration['total_time_in_services'] = times[-1] - times[0]
         service_to_duration[service] = str(times[-1] - times[0])
-    service_to_duration['total'] = str(service_to_duration['total'])
+    service_to_duration['total_time_in_services'] = str(service_to_duration['total_time_in_services'])
 
     return service_to_duration
 
