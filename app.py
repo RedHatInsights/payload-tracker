@@ -121,10 +121,8 @@ def check_payload_status_metrics(payload_id, service, status, service_date=None)
             logger.info(f"Could not delete payload status cache for "
                         f"{payload_id} - {service} - {status}")
 
-    # at some point this should be ingress, however currently ingress is not integrated
-    #if service in ['ingress'] and status in ['received']:
     try:
-        if service in ['advisor-pup'] and status in ['processing']:
+        if service in ['ingress'] and status in ['received']:
             payload_status_times[payload_id] = {}
             payload_status_times[payload_id]['start'] = service_date
         if service in ['insights-advisor-service'] and status in ['success']:
