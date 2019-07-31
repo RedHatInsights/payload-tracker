@@ -111,7 +111,7 @@ def check_payload_status_metrics(payload_id, service, status, service_date=None)
         payload_statuses[payload_id][service].append(status)
         SERVICE_STATUS_COUNTER.labels(service=service, status=status).inc()
 
-    if status in ['error', 'success']:
+    if status in ['error', 'success', 'announced']:
         try:
             if service == 'insights-advisor-service':
                 del payload_statuses[payload_id]
