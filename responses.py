@@ -51,8 +51,8 @@ def create(body):
     return _response(data=body, status=HTTPStatus.CREATED)
 
 
-def search(count, entities):
-    return _response(data={'count': count, 'data': entities}, status=HTTPStatus.OK)
+def search(count, entities, elapsed):
+    return _response(data={'count': count, 'elapsed': elapsed, 'data': entities}, status=HTTPStatus.OK)
 
 
 def get_with_duration(entities, durations):

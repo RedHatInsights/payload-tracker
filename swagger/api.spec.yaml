@@ -118,11 +118,15 @@ paths:
             type: object
             required:
               - count
+              - elapsed
               - data
             properties:
-              total:
+              count:
                 type: integer
                 description: Total number of payloads with filters only
+              elapsed:
+                type: string
+                description: Total elapsed time in seconds of API request
               data:
                 type: array
                 items:
