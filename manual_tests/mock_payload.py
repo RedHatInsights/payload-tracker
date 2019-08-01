@@ -30,7 +30,7 @@ payloads = [
 {
        'service': 'ingress',
        'payload_id': '12345',
-       'status': 'success'
+       'status': 'validated'
 },
 {
        'service': 'advisor-pup',
@@ -41,7 +41,13 @@ payloads = [
        'service': 'advisor-pup',
        'payload_id': '12345',
        'status': 'success'
-},{
+},
+{
+       'service': 'ingress',
+       'payload_id': '12345',
+       'status': 'announced'
+},
+{
        'service': 'insights-advisor-service',
        'payload_id': '12345',
        'status': 'received'

@@ -33,7 +33,11 @@ PROMETHEUS_PORT = os.environ.get('PROMETHEUS_PORT', 8000)
 SERVICE_STATUS_COUNTER = Counter('payload_tracker_service_status_counter',
                                  'Counters for services and their various statuses',
                                  ['service', 'status'])
-UPLOAD_TIME_ELAPSED = Summary('payload_tracker_upload_time_elapsed', 'Tracks the elapsed upload time')
+UPLOAD_TIME_ELAPSED = Summary('payload_tracker_upload_time_elapsed',
+                              'Tracks the total elapsed upload time')
+UPLOAD_TIME_ELAPSED_BY_SERVICE = Summary('payload_tracker_upload_time_by_service_elapsed',
+                                         'Tracks the elapsed upload time by service',
+                                         ['service'])
 
 PAYLOAD_TRACKER_SERVICE_VERSION = Info(
     'payload_tracker_service_version',
@@ -88,15 +92,24 @@ sio = socketio.AsyncServer(async_mode='aiohttp')
 # }
 payload_statuses = {}
 
-# payload_status_times = {
+# payload_status_total_times = {
 #    '123456': {'start':12312412, 'stop': 12312123}
 # }
-payload_status_times = {}
+payload_status_total_times = {}
+
+# payload_status_service_total_times = {
+#    '123456': { 
+#                  {'ingress': {'start':12312412, 'stop': 12312123},
+#                  {'pup': {'start':12345}
+#               }
+# }
+payload_status_service_total_times = {}
 
 
 def check_payload_status_metrics(payload_id, service, status, service_date=None):
-    unique_payload_service_and_status = True
 
+    # Determine unique payload statuses (uniquely increment service status counts)
+    unique_payload_service_and_status = True
     if payload_id in payload_statuses:
         if service in payload_statuses[payload_id]:
             if status in payload_statuses[payload_id][service]:
@@ -111,6 +124,7 @@ def check_payload_status_metrics(payload_id, service, status, service_date=None)
         payload_statuses[payload_id][service].append(status)
         SERVICE_STATUS_COUNTER.labels(service=service, status=status).inc()
 
+    # Clean up anything we don't still need to track in memory
     if status in ['error', 'success', 'announced']:
         try:
             if service == 'insights-advisor-service':
@@ -121,24 +135,74 @@ def check_payload_status_metrics(payload_id, service, status, service_date=None)
             logger.info(f"Could not delete payload status cache for "
                         f"{payload_id} - {service} - {status}")
 
+    # Determine TOTAL Upload elapsed times (ingress all the way to advisor)
     try:
-        if service in ['ingress'] and status in ['received']:
-            payload_status_times[payload_id] = {}
-            payload_status_times[payload_id]['start'] = service_date
-        if service in ['insights-advisor-service'] and status in ['success']:
-            start = payload_status_times[payload_id]['start']
+        if service == 'ingress' and status == 'received':
+            payload_status_total_times[payload_id] = {}
+            payload_status_total_times[payload_id]['start'] = service_date
+        if service == 'insights-advisor-service' and status == 'success':
+            start = payload_status_total_times[payload_id]['start']
             stop = service_date
             elapsed = (stop - start).total_seconds()
-            logger.info(f"Subtracting {start} from {stop} to get {elapsed}")
-
-            payload_status_times[payload_id]['stop'] = stop
-            payload_status_times[payload_id]['elapsed'] = elapsed
-
             UPLOAD_TIME_ELAPSED.observe(elapsed)
 
-            del payload_status_times[payload_id]
+        # Clean up memory
+        if service == 'ingress' and status == 'error':
+            del payload_status_total_times[payload_id]
+        if service == 'advisor-pup' and status == 'error':
+            del payload_status_total_times[payload_id]
+        if service == 'insights-advisor-service' and status in ['success', 'error']:
+            del payload_status_total_times[payload_id]
     except:
-        logger.info(f"Could not update payload status upload time for "
+        logger.info(f"Could not update payload status total upload time for "
+                    f"{payload_id} - {service} - {status}")
+
+
+    # Determine elapsed times PER SERVICE INDIVIDUALLY
+    try:
+        # Determine ingress (at some point we should probably subtract the elapsed time for pup here)
+        # The flow is ingress -> pup -> ingress -> advisor service (currently)
+        # This will need to change when PUPTOO becomes a thing
+        if service == 'ingress' and status == 'received':
+            payload_status_service_total_times[payload_id] = {}
+            payload_status_service_total_times[payload_id]['ingress'] = {}
+            payload_status_service_total_times[payload_id]['ingress']['start'] = service_date
+        if service == 'ingress' and status == 'announced':
+            start = payload_status_service_total_times[payload_id]['ingress']['start']
+            stop = service_date
+            elapsed = (stop - start).total_seconds()
+            UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service=service).observe(elapsed)
+            del payload_status_service_total_times[payload_id]['ingress']
+        # Determine pup
+        if service == 'advisor-pup' and status == 'processing':
+            payload_status_service_total_times[payload_id]['advisor-pup'] = {}
+            payload_status_service_total_times[payload_id]['advisor-pup']['start'] = service_date
+        if service == 'advisor-pup' and status == 'success':
+            start = payload_status_service_total_times[payload_id]['advisor-pup']['start']
+            stop = service_date
+            elapsed = (stop - start).total_seconds()
+            UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service=service).observe(elapsed)
+            del payload_status_service_total_times[payload_id]['advisor-pup']
+        # Determine advisor
+        if service == 'insights-advisor-service' and status == 'received':
+            payload_status_service_total_times[payload_id]['insights-advisor-service'] = {}
+            payload_status_service_total_times[payload_id]['insights-advisor-service']['start'] = service_date
+        if service == 'insights-advisor-service' and status == 'success':
+            start = payload_status_service_total_times[payload_id]['insights-advisor-service']['start']
+            stop = service_date
+            elapsed = (stop - start).total_seconds()
+            UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service=service).observe(elapsed)
+
+        # Clean up any errors
+        if service == 'ingress' and status == 'error':
+            del payload_status_service_total_times[payload_id]
+        if service == 'advisor-pup' and status == 'error':
+            del payload_status_service_total_times[payload_id]
+        if service == 'insights-advisor-service' and status in ['success', 'error']:
+            del payload_status_service_total_times[payload_id]
+
+    except:
+        logger.info(f"Could not update payload status service elapsed time for "
                     f"{payload_id} - {service} - {status}")
 
 
