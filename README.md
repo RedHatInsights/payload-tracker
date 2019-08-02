@@ -63,11 +63,11 @@ Simply send a message on the ‘platform.payload-status’ for your given Kafka 
 'date': 'Timestamp for the message relating to the status above' 
 }
 ```
-Please send in one of the following statuses:
+The following statuses are required:
 ```
 ‘received‘ 
-‘processing‘
 ‘success‘
+OR
 ‘error‘
 ```
 
