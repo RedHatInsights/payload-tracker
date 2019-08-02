@@ -48,7 +48,7 @@ Please see the Swagger Spec for API Endpoints. The API Swagger Spec is located i
 
 Integration
 --------------------
-Simply send a message on the ‘platform.payload-status’ for your given Kafka MQ Broker in the appropriate environment. Currently, the only required fields are ‘service,’ ‘payload_id’ and ‘status,’ however this may change.The format is as follows:
+Simply send a message on the ‘platform.payload-status’ for your given Kafka MQ Broker in the appropriate environment. Currently, the only required fields are ‘service,’ ‘payload_id,‘ ‘status,’ and ‘date‘ however this may change.The format is as follows:
 
 ```
 { 	
@@ -63,7 +63,15 @@ Simply send a message on the ‘platform.payload-status’ for your given Kafka 
 'date': 'Timestamp for the message relating to the status above' 
 }
 ```
+Please send in one of the following statuses:
+```
+‘received‘ 
+‘processing‘
+‘success‘
+‘error‘
+```
 
+A status of ‘received,‘ and ‘success‘ or ‘error‘ are the only required statuses. Received indicates your service has touched a payload and will begin performing some action upon it. This allows the payload tracker to begin elapsed time analysis for this lifecycle of the upload/payload. The success/error indicates your service has finished with the payload/upload (for this stage) of the upload. Whether or not your service may or may not touch the payload again is irrelevant. It is simply indicating that for this stage of the upload your service is done. Any additional statuses may be sent in but are purely for more verbose analysis and not currently used in any other calculations (such as elapsed upload times).
 
 Docker
 --------------------
