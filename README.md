@@ -73,6 +73,8 @@ OR
 
 A status of ‘received,‘ and ‘success‘ or ‘error‘ are the only required statuses. Received indicates your service has touched a payload and will begin performing some action upon it. This allows the payload tracker to begin elapsed time analysis for this lifecycle of the upload/payload. The success/error indicates your service has finished with the payload/upload (for this stage) of the upload. Whether or not your service may or may not touch the payload again is irrelevant. It is simply indicating that for this stage of the upload your service is done. Any additional statuses may be sent in but are purely for more verbose analysis and not currently used in any other calculations (such as elapsed upload times).
 
+For example you may send in a ‘processing‘ status. This status obviously indicates your service is in a processing state, and will additionally show up in Grafana charts. This is useful for seeing the volume of uploads currently in processing states across various services.
+
 Docker
 --------------------
 
