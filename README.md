@@ -58,7 +58,7 @@ Simply send a message on the ‘platform.payload-status’ for your given Kafka 
 'payload_id': 'The ID of the payload',
 'inventory_id': 'The ID of the entity in terms of the inventory',
 'system_id': 'The ID of the entity in terms of the actual system',
-'status': 'received|processing|success|failure|invalid',
+'status': 'received|processing|success|error|etc',
 'status_msg': 'Information relating to the above status, should more verbiage be needed (in the event of an error)',
 'date': 'Timestamp for the message relating to the status above' 
 }
