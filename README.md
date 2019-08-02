@@ -13,7 +13,7 @@ The ultimate goal of this service is to say that the upload made it through X se
 
 Architecture
 --------------------
-Payload Tracker is a service that lives in `platform-<env>`. This service has its own database representative of the current payload status in the platform. There are REST API endpoints that give access to the payload status. There is not currently any front-end UI for this service. This service listens to messages on the Kafka MQ topic `platform.payload-status.`
+Payload Tracker is a service that lives in `platform-<env>`. This service has its own database representative of the current payload status in the platform. There are REST API endpoints that give access to the payload status. This service listens to messages on the Kafka MQ topic `platform.payload-status.` There is now a front-end UI for this service located in the same `platform-<env>`. It is respectively titled "payload-tracker-frontend."
 
 
 REST API Endpoints
