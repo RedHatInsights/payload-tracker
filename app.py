@@ -26,6 +26,8 @@ PAYLOAD_TRACKER_TOPIC = os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker
 API_PORT = os.environ.get('API_PORT', 8080)
 KIBANA_URL = os.environ.get('KIBANA_URL')
 KIBANA_COOKIES = {'_oauth_proxy': os.environ.get('KIBANA_COOKIES')}
+KERBEROS_USERNAME = os.environ.get('KERBEROS_USERNAME')
+KERBEROS_PASSWORD = os.environ.get('KERBEROS_PASSWORD')
 
 # Prometheus configuration
 DISABLE_PROMETHEUS = True if os.environ.get('DISABLE_PROMETHEUS') == "True" else False
@@ -312,6 +314,18 @@ def setup_api():
     app.add_api('api.spec.yaml', resolver=RestyResolver('api'))
     return app
 
+
+def init_kerberos_ticket():
+    os.system(f'echo {KERBEROS_PASSWORD} | kinit {KERBEROS_USERNAME}')
+
+
+async def setup_periodic_kerberos_renew():
+    while True:
+        logger.info('Refreshing Kerberos Ticket')
+        os.system('./refresh-kerberos.sh')
+        await asyncio.sleep(3600, loop=loop)
+
+
 async def setup_periodic_kibana_query():
     while True:
         logger.info("Querying Kibana for new payloads")
@@ -337,6 +351,8 @@ if __name__ == "__main__":
         logger.info("Using PROMETHEUS_PORT: %s", PROMETHEUS_PORT)
         logger.info("Using Kibana URL: %s", KIBANA_URL)
         logger.info("Using Kibana Cookies: %s", KIBANA_COOKIES)
+        logger.info("Using Kerberos User: %s", KERBEROS_USERNAME)
+        logger.info("Using Kerberos Password: %s", KERBEROS_PASSWORD)
 
         # setup the connexion app
         logger.info("Setting up REST API")
@@ -363,6 +379,11 @@ if __name__ == "__main__":
         if os.environ.get('KIBANA_URL'):
             logger.info("Setting up Kibana Courier")
             loop.create_task(setup_periodic_kibana_query())
+
+        # setup kerberos ticket
+        if os.environ.get('KERBEROS_USERNAME'):
+            init_kerberos_ticket()
+            loop.create_task(setup_periodic_kerberos_renew())
 
         # loops
         logger.info("Running...")
