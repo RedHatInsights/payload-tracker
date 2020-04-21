@@ -6,7 +6,7 @@ Overview
 --------------------
 The Payload Tracker is a centralized location for tracking payloads through the Platform. Finding the status (current, or past) of a payload is difficult as logs are spread amongst various services and locations. Furthermore, Prometheus is meant purely for an aggregation of metrics and not for individualized transactions or tracking.
 
-The Payload Tracker aims to provide a mechanism to query for a `payload_id,` `inventory_id,` or `system_uuid` (machine-id) and see the current, last or previous X statuses of this upload through the platform. In the future, hopefully it will allow for more robust filtering based off of `service,` `account,` and `status.`
+The Payload Tracker aims to provide a mechanism to query for a `request_id,` `inventory_id,` or `system_uuid` (physical machine-id) and see the current, last or previous X statuses of this upload through the platform. In the future, hopefully it will allow for more robust filtering based off of `service,` `account,` and `status.`
 
 The ultimate goal of this service is to say that the upload made it through X services and was successful, or that the upload made it through X services was a failure and why it was a failure.
 
@@ -23,7 +23,7 @@ Please see the Swagger Spec for API Endpoints. The API Swagger Spec is located i
 /v1/payloads
 	?page=<integer>
 	?page_size=<integer>
-	?sort_by=<string>[service, source, account, payload_id, inventory_id, system_id, status, status_msg, date, created_at]
+	?sort_by=<string>[service, source, account, request_id, inventory_id, system_id, status, status_msg, date, created_at]
 	?status=<string>(The status as given on the Payload.)
 	?service=<string>(The service that processed the Payload.)
 	?inventory_id=<string>(The Inventory ID, if received on the Payload.)
@@ -40,7 +40,7 @@ Please see the Swagger Spec for API Endpoints. The API Swagger Spec is located i
 	?created_at_gt=<string>(YYYY-MM-DD)
 	?created_at_gte=<string>(YYYY-MM-DD)
 	?sort_dir=<string>(asc, desc)
-/v1/payloads/{payload_id}
+/v1/payloads/{request_id}
 	?sort_by=<string>[service, source, status, status_msg, date]
 	?sort_dir=<string>(asc, desc)
 ```
@@ -48,14 +48,14 @@ Please see the Swagger Spec for API Endpoints. The API Swagger Spec is located i
 
 Integration
 --------------------
-Simply send a message on the ‘platform.payload-status’ for your given Kafka MQ Broker in the appropriate environment. Currently, the only required fields are ‘service,’ ‘payload_id,‘ ‘status,’ and ‘date‘ however this may change.The format is as follows:
+Simply send a message on the ‘platform.payload-status’ for your given Kafka MQ Broker in the appropriate environment. Currently, the only required fields are ‘service,’ ‘request_id,‘ ‘status,’ and ‘date‘ however this may change.The format is as follows:
 
 ```
 { 	
 'service': 'The services name processing the payload',
 'source': 'This is indicative of a third party rule hit analysis. (not Insights Client)',
 'account': 'The RH associated account',
-'payload_id': 'The ID of the payload',
+'request_id': 'The ID of the payload',
 'inventory_id': 'The ID of the entity in terms of the inventory',
 'system_id': 'The ID of the entity in terms of the actual system',
 'status': 'received|processing|success|error|etc',
@@ -66,14 +66,12 @@ Simply send a message on the ‘platform.payload-status’ for your given Kafka 
 The following statuses are required:
 ```
 ‘received‘ 
-‘success‘
-OR
-‘error‘
+‘success/error‘ # success OR error
 ```
 
-A status of ‘received,‘ and ‘success‘ or ‘error‘ are the only required statuses. Received indicates your service has touched a payload and will begin performing some action upon it. This allows the payload tracker to begin elapsed time analysis for this lifecycle of the upload/payload. The success/error indicates your service has finished with the payload/upload (for this stage) of the upload. Whether or not your service may or may not touch the payload again is irrelevant. It is simply indicating that for this stage of the upload your service is done. Any additional statuses may be sent in but are purely for more verbose analysis and not currently used in any other calculations (such as elapsed upload times).
+A status of ‘received,‘ and ‘success/error‘ (success OR error) are the only required statuses. Received indicates your service has touched a payload and will begin performing some action upon it. This allows the payload tracker to begin elapsed time analysis for this lifecycle of the upload/payload. The success/error indicates your service has finished with the payload/upload (for this stage) of the upload. Whether or not your service may or may not touch the payload again is irrelevant. It is simply indicating that for this stage of the upload your service is done. Any additional statuses may be sent in but are purely for more verbose analysis and not currently used in any other calculations (such as elapsed upload times).
 
-For example you may send in a ‘processing‘ status. This status obviously indicates your service is in a processing state, and will additionally show up in Grafana charts. This is useful for seeing the volume of uploads currently in processing states across various services.
+For example you may send in a ‘processing‘ status. This status obviously indicates your service is in a processing state, and will additionally show up in Grafana charts, and on the frontend. This is useful for seeing the volume of uploads currently in processing states across various services.
 
 Docker
 --------------------
