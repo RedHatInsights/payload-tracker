@@ -1,4 +1,4 @@
-"""Only require service, payload_id, and status
+"""Only require service, request_id, and status
 
 Revision ID: ae8f0f156ca6
 Revises: c730d238f517

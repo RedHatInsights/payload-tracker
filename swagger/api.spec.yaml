@@ -31,7 +31,7 @@ paths:
           required: false
           type: string
           default: date
-          enum: [service, source, account, payload_id, inventory_id, system_id, status, status_msg, date, created_at]
+          enum: [service, source, account, request_id, inventory_id, system_id, status, status_msg, date, created_at]
         - name: status
           in: query
           description: filter for status
@@ -134,7 +134,7 @@ paths:
                 description: List of payloads based on the filters, page size and offset
         '404':
           $ref: '#/responses/NotFound'
-  /payloads/{payload_id}:
+  /payloads/{request_id}:
     get:
       description: ''
       parameters: []
@@ -160,7 +160,7 @@ paths:
         '404':
             $ref: '#/responses/NotFound'
     parameters:
-      - name: payload_id
+      - name: request_id
         in: path
         description: A unique value identifying this payload.
         required: true
@@ -212,7 +212,7 @@ definitions:
       - message
   PayloadRetrieve:
     required:
-      - payload_id
+      - request_id
     type: object
     properties:
       id:
@@ -227,8 +227,8 @@ definitions:
       account:
         title: Account
         type: string
-      payload_id:
-        title: Payload ID
+      request_id:
+        title: Request ID
         type: string
         minLength: 1
       inventory_id:

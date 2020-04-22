@@ -19,60 +19,60 @@ def produceMessageCallback(err, msg):
 payloads = [
 {
        'service': 'ingress',
-       'payload_id': '12345',
+       'request_id': '12345',
        'status': 'received'
 },
 {
        'service': 'ingress',
-       'payload_id': '12345',
+       'request_id': '12345',
        'status': 'processing'
 },
 {
        'service': 'ingress',
-       'payload_id': '12345',
+       'request_id': '12345',
        'status': 'validated'
 },
 {
        'service': 'advisor-pup',
-       'payload_id': '12345',
+       'request_id': '12345',
        'status': 'processing'
 },
 {
        'service': 'advisor-pup',
-       'payload_id': '12345',
+       'request_id': '12345',
        'status': 'success'
 },
 {
        'service': 'ingress',
-       'payload_id': '12345',
+       'request_id': '12345',
        'status': 'announced'
 },
 {
        'service': 'insights-advisor-service',
-       'payload_id': '12345',
+       'request_id': '12345',
        'status': 'received'
 },
 {
        'service': 'insights-advisor-service',
-       'payload_id': '12345',
+       'request_id': '12345',
        'status': 'processing',
        'status_msg': 'analyzing archive'
 },
 {
        'service': 'insights-advisor-service',
-       'payload_id': '12345',
+       'request_id': '12345',
        'status': 'processing',
        'status_msg': 'generating reports'
 },
 {
        'service': 'insights-advisor-service',
-       'payload_id': '12345',
+       'request_id': '12345',
        'status': 'processing',
        'status_msg': 'performing db operations'
 },
 {
        'service': 'insights-advisor-service',
-       'payload_id': '12345',
+       'request_id': '12345',
        'status': 'success'
 },
 ]

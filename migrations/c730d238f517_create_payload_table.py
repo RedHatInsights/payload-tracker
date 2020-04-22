@@ -22,7 +22,7 @@ def upgrade():
                     sa.Column('service', sa.String(), nullable=False),
                     sa.Column('source', sa.String(), nullable=False),
                     sa.Column('account', sa.String(), nullable=False),
-                    sa.Column('payload_id', sa.String(), nullable=False),
+                    sa.Column('request_id', sa.String(), nullable=False),
                     sa.Column('inventory_id', sa.String(), nullable=True),
                     sa.Column('system_id', sa.String(), nullable=True),
                     sa.Column('status', sa.String(), nullable=True),

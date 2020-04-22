@@ -101,7 +101,7 @@ def _get_durations(payloads):
     return service_to_duration
 
 
-async def get(payload_id, *args, **kwargs):
+async def get(request_id, *args, **kwargs):
 
     payloads = None
     payload_dump = []
@@ -109,10 +109,10 @@ async def get(payload_id, *args, **kwargs):
     # initialize connection
     async with db.bind.acquire() as conn:
 
-        logger.debug(f"Payloads.get({payload_id}, {args}, {kwargs})")
+        logger.debug(f"Payloads.get({request_id}, {args}, {kwargs})")
         sort_func = getattr(db, kwargs['sort_dir'])
         payloads = await conn.all(Payload.query.where(
-            Payload.payload_id == payload_id
+            Payload.request_id == request_id
         ).order_by(
             sort_func(kwargs['sort_by'])
         ))

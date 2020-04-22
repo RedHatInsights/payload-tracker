@@ -22,7 +22,7 @@ class Payload(db.Model):
     service = db.Column(db.Unicode)
     source = db.Column(db.Unicode)
     account = db.Column(db.Unicode)
-    payload_id = db.Column(db.Unicode)
+    request_id = db.Column(db.Unicode)
     inventory_id = db.Column(db.Unicode)
     system_id = db.Column(db.Unicode)
     status = db.Column(db.Unicode)
