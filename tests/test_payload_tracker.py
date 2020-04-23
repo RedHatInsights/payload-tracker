@@ -9,7 +9,7 @@ from app import process_payload_status
 async def test_process_payload_status_missing_expected_key(mocker):
     payload = {
         "service": "test-service",
-        "payload_id": "1"
+        "request_id": "1"
     }
 
     class MockMsg(object):

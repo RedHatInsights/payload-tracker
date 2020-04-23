@@ -63,7 +63,7 @@ class KibanaCourier:
 
                 self.logger.info("Payload message has expected keys. Begin sanitizing")
                 sanitized_payload_status = {
-                    'payload_id': payload['req_id'],
+                    'request_id': payload['req_id'],
                     'service': payload['@log_stream'],
                     'status_msg': f"{str(payload['statusCode'])}: {str(payload['msg'])}",
                     'status': str(payload['statusCode']),
@@ -80,7 +80,7 @@ class KibanaCourier:
                         the_error = traceback.format_exc()
                         self.logger.error(f"Error parsing date: {the_error}")
 
-                self.logger.info(f"Sanitized Payload for DB {sanitized_payload_status['payload_id']}")
+                self.logger.info(f"Sanitized Payload for DB {sanitized_payload_status['request_id']}")
                 async with db.transaction():
                     payload_to_create = Payload(**sanitized_payload_status)
                     created_payload = await payload_to_create.create()

@@ -106,56 +106,56 @@ payload_status_total_times = {}
 payload_status_service_total_times = {}
 
 
-def check_payload_status_metrics(payload_id, service, status, service_date=None):
+def check_payload_status_metrics(request_id, service, status, service_date=None):
 
     # Determine unique payload statuses (uniquely increment service status counts)
     unique_payload_service_and_status = True
-    if payload_id in payload_statuses:
-        if service in payload_statuses[payload_id]:
-            if status in payload_statuses[payload_id][service]:
+    if request_id in payload_statuses:
+        if service in payload_statuses[request_id]:
+            if status in payload_statuses[request_id][service]:
                 unique_payload_service_and_status = False
         else:
-            payload_statuses[payload_id][service] = list()
+            payload_statuses[request_id][service] = list()
     else:
-        payload_statuses[payload_id] = {}
-        payload_statuses[payload_id][service] = list()
+        payload_statuses[request_id] = {}
+        payload_statuses[request_id][service] = list()
 
     if unique_payload_service_and_status:
-        payload_statuses[payload_id][service].append(status)
+        payload_statuses[request_id][service].append(status)
         SERVICE_STATUS_COUNTER.labels(service=service, status=status).inc()
 
     # Clean up anything we don't still need to track in memory
     if status in ['error', 'success', 'announced']:
         try:
             if service == 'insights-advisor-service':
-                del payload_statuses[payload_id]
+                del payload_statuses[request_id]
             else:
-                del payload_statuses[payload_id][service]
+                del payload_statuses[request_id][service]
         except:
             logger.info(f"Could not delete payload status cache for "
-                        f"{payload_id} - {service} - {status}")
+                        f"{request_id} - {service} - {status}")
 
     # Determine TOTAL Upload elapsed times (ingress all the way to advisor)
     try:
         if service == 'ingress' and status == 'received':
-            payload_status_total_times[payload_id] = {}
-            payload_status_total_times[payload_id]['start'] = service_date
+            payload_status_total_times[request_id] = {}
+            payload_status_total_times[request_id]['start'] = service_date
         if service == 'insights-advisor-service' and status == 'success':
-            start = payload_status_total_times[payload_id]['start']
+            start = payload_status_total_times[request_id]['start']
             stop = service_date
             elapsed = (stop - start).total_seconds()
             UPLOAD_TIME_ELAPSED.observe(elapsed)
 
         # Clean up memory
         if service == 'ingress' and status == 'error':
-            del payload_status_total_times[payload_id]
+            del payload_status_total_times[request_id]
         if service == 'advisor-pup' and status == 'error':
-            del payload_status_total_times[payload_id]
+            del payload_status_total_times[request_id]
         if service == 'insights-advisor-service' and status in ['success', 'error']:
-            del payload_status_total_times[payload_id]
+            del payload_status_total_times[request_id]
     except:
         logger.info(f"Could not update payload status total upload time for "
-                    f"{payload_id} - {service} - {status}")
+                    f"{request_id} - {service} - {status}")
 
 
     # Determine elapsed times PER SERVICE INDIVIDUALLY
@@ -164,46 +164,46 @@ def check_payload_status_metrics(payload_id, service, status, service_date=None)
         # The flow is ingress -> pup -> ingress -> advisor service (currently)
         # This will need to change when PUPTOO becomes a thing
         if service == 'ingress' and status == 'received':
-            payload_status_service_total_times[payload_id] = {}
-            payload_status_service_total_times[payload_id]['ingress'] = {}
-            payload_status_service_total_times[payload_id]['ingress']['start'] = service_date
+            payload_status_service_total_times[request_id] = {}
+            payload_status_service_total_times[request_id]['ingress'] = {}
+            payload_status_service_total_times[request_id]['ingress']['start'] = service_date
         if service == 'ingress' and status == 'announced':
-            start = payload_status_service_total_times[payload_id]['ingress']['start']
+            start = payload_status_service_total_times[request_id]['ingress']['start']
             stop = service_date
             elapsed = (stop - start).total_seconds()
             UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service=service).observe(elapsed)
-            del payload_status_service_total_times[payload_id]['ingress']
+            del payload_status_service_total_times[request_id]['ingress']
         # Determine pup
         if service == 'advisor-pup' and status == 'processing':
-            payload_status_service_total_times[payload_id]['advisor-pup'] = {}
-            payload_status_service_total_times[payload_id]['advisor-pup']['start'] = service_date
+            payload_status_service_total_times[request_id]['advisor-pup'] = {}
+            payload_status_service_total_times[request_id]['advisor-pup']['start'] = service_date
         if service == 'advisor-pup' and status == 'success':
-            start = payload_status_service_total_times[payload_id]['advisor-pup']['start']
+            start = payload_status_service_total_times[request_id]['advisor-pup']['start']
             stop = service_date
             elapsed = (stop - start).total_seconds()
             UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service=service).observe(elapsed)
-            del payload_status_service_total_times[payload_id]['advisor-pup']
+            del payload_status_service_total_times[request_id]['advisor-pup']
         # Determine advisor
         if service == 'insights-advisor-service' and status == 'received':
-            payload_status_service_total_times[payload_id]['insights-advisor-service'] = {}
-            payload_status_service_total_times[payload_id]['insights-advisor-service']['start'] = service_date
+            payload_status_service_total_times[request_id]['insights-advisor-service'] = {}
+            payload_status_service_total_times[request_id]['insights-advisor-service']['start'] = service_date
         if service == 'insights-advisor-service' and status == 'success':
-            start = payload_status_service_total_times[payload_id]['insights-advisor-service']['start']
+            start = payload_status_service_total_times[request_id]['insights-advisor-service']['start']
             stop = service_date
             elapsed = (stop - start).total_seconds()
             UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service=service).observe(elapsed)
 
         # Clean up any errors
         if service == 'ingress' and status == 'error':
-            del payload_status_service_total_times[payload_id]
+            del payload_status_service_total_times[request_id]
         if service == 'advisor-pup' and status == 'error':
-            del payload_status_service_total_times[payload_id]
+            del payload_status_service_total_times[request_id]
         if service == 'insights-advisor-service' and status in ['success', 'error']:
-            del payload_status_service_total_times[payload_id]
+            del payload_status_service_total_times[request_id]
 
     except:
         logger.info(f"Could not update payload status service elapsed time for "
-                    f"{payload_id} - {service} - {status}")
+                    f"{request_id} - {service} - {status}")
 
 
 
@@ -236,14 +236,8 @@ async def process_payload_status(json_msgs):
         if data:
             logger.info("Payload message processed as JSON.")
 
-            # HACK: For now just copy in request_id (if present) as payload_id
-            # At some point we need to redo the verbiage terminology
-            # payload_id (legacy) and request_id (new) are synonymous
-            if 'request_id' in data:
-                data['payload_id'] = data['request_id']
-
             # Check for missing keys
-            expected_keys = ["service", "payload_id", "status", "date"]
+            expected_keys = ["service", "request_id", "status", "date"]
             missing_keys = [key for key in expected_keys if key not in data]
             if missing_keys:
                 logger.info(f"Payload {data} missing keys {missing_keys}. Expected {expected_keys}")
@@ -257,7 +251,7 @@ async def process_payload_status(json_msgs):
             # sanitize the payload status
             sanitized_payload_status = {
                 'service': data['service'],
-                'payload_id': data['payload_id'],
+                'request_id': data['request_id'],
                 'status': data['status']
             }
             for key in ['inventory_id', 'system_id', 'status_msg', 'source', 'account']:
@@ -272,7 +266,7 @@ async def process_payload_status(json_msgs):
                     logger.error(f"Error parsing date: {the_error}")
 
             # Increment Prometheus Metrics
-            check_payload_status_metrics(sanitized_payload_status['payload_id'],
+            check_payload_status_metrics(sanitized_payload_status['request_id'],
                                          sanitized_payload_status['service'],
                                          sanitized_payload_status['status'],
                                          sanitized_payload_status['date'])
