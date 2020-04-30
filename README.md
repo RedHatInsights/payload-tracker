@@ -120,7 +120,8 @@ PYTHONPATH=. alembic upgrade head
 
 4. Start the server
 ```
-pipenv run server
+pipenv run server (without frontend running)
+API_PORT=8081 pipenv run server (if you want to run the front-end as well)
 ```
 
 
