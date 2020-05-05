@@ -17,6 +17,7 @@ alembic = "*"
 aiohttp = "*"
 aiohttp-jinja2 = "*"
 python-socketio = "*"
+uvloop = "*"
 
 [dev-packages]
 pytest = "*"

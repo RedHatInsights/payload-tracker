@@ -10,6 +10,7 @@ from kafkahelpers import ReconnectingClient
 from prometheus_client import start_http_server, Info, Counter, Summary
 from bounded_executor import BoundedExecutor
 import asyncio
+import uvloop
 import connexion
 import socketio
 from connexion.resolver import RestyResolver
@@ -69,6 +70,7 @@ logger = tracker_logging.initialize_logging()
 # start thread pool executor and loop
 logger.info("Starting thread pool executor and asyncio loop.")
 executor = BoundedExecutor(0, THREAD_POOL_SIZE)
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 loop = asyncio.get_event_loop()
 loop.set_default_executor(executor)
 
