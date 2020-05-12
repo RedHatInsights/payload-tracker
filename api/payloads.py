@@ -67,41 +67,9 @@ async def search(*args, **kwargs):
         return responses.search(payloads_count, payloads_dump, elapsed)
 
 
-def _get_durations(payloads):
-    services = set()
-    service_to_times = {}
-    service_to_duration = {}
-    all_times = []
-
-    for payload in payloads:
-        services.add(payload['service'])
-
-    for service in services:
-        for payload in payloads:
-            all_times.append(payload['date'])
-            if payload['service'] == service:
-                if service in service_to_times:
-                    service_to_times[service].append(payload['date'])
-                else:
-                    service_to_times[service] = [payload['date']]
-    
-    all_times.sort()
-    service_to_duration['total_time'] = str(all_times[-1] - all_times[0])
-
-    for service in services:
-        times = [time for time in service_to_times[service]]
-        times.sort()
-        if 'total_time_in_services' in service_to_duration.keys():
-            service_to_duration['total_time_in_services'] += times[-1] - times[0]
-        else:
-            service_to_duration['total_time_in_services'] = times[-1] - times[0]
-        service_to_duration[service] = str(times[-1] - times[0])
-    service_to_duration['total_time_in_services'] = str(service_to_duration['total_time_in_services'])
-
-    return service_to_duration
-
-
 async def get(request_id, *args, **kwargs):
+
+    def get_dict(res): return {item[0]: str(item[1]) for item in res}
 
     payloads = None
     payload_dump = []
@@ -116,10 +84,16 @@ async def get(request_id, *args, **kwargs):
         ).order_by(
             sort_func(kwargs['sort_by'])
         ))
-
+        durations = get_dict(await conn.all(db.text(
+            'SELECT service, duration FROM durations WHERE request_id = :request_id'
+        ), { 'request_id' : request_id }))
+        times = await conn.all(db.text(
+            'SELECT MAX(a.end)-MIN(a.start), SUM(a.duration) FROM durations as a WHERE a.request_id = :request_id'
+        ), { 'request_id' : request_id })
+        durations['total_time'] = str(times[0][0])
+        durations['total_time_in_services'] = str(times[0][1])
     if payloads is None:
         return responses.not_found()
     else:
         payload_dump = [payload.dump() for payload in payloads]
-        durations = _get_durations(payload_dump)
         return responses.get_with_duration(payload_dump, durations)
