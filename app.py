@@ -14,7 +14,7 @@ import connexion
 import socketio
 from connexion.resolver import RestyResolver
 
-from db import init_db, db, Payload
+from db import init_db, db, Payload, PayloadStatus
 import tracker_logging
 from kibana_courier import KibanaCourier
 
@@ -249,18 +249,27 @@ async def process_payload_status(json_msgs):
 
             logger.info("Payload message has expected keys. Begin sanitizing")
             # sanitize the payload status
+            sanitized_payload = {
+                'request_id': data['request_id']
+            }
             sanitized_payload_status = {
                 'service': data['service'],
                 'request_id': data['request_id'],
                 'status': data['status']
             }
-            for key in ['inventory_id', 'system_id', 'status_msg', 'source', 'account']:
+
+            for key in ['inventory_id', 'system_id', 'account']:
+                if key in data:
+                    sanitized_payload[key] = data[key]
+
+            for key in ['status_msg', 'source']:
                 if key in data:
                     sanitized_payload_status[key] = data[key]
 
             if 'date' in data:
                 try:
-                    sanitized_payload_status['date'] = default_tzinfo(parser.parse(data['date']), tzutc()).astimezone(tzutc())
+                    # sanitized_payload_status['date'] = default_tzinfo(parser.parse(data['date']), tzutc()).astimezone(tzutc())
+                    sanitized_payload_status['date'] = parser.parse(data['date'])
                 except:
                     the_error = traceback.format_exc()
                     logger.error(f"Error parsing date: {the_error}")
@@ -271,13 +280,19 @@ async def process_payload_status(json_msgs):
                                          sanitized_payload_status['status'],
                                          sanitized_payload_status['date'])
 
-            logger.info(f"Sanitized Payload for DB {sanitized_payload_status}")
+            logger.info(f"Sanitized Payload for DB {sanitized_payload}")
+            logger.info(f"Sanitized Payload Status for DB {sanitized_payload_status}")
             # insert into database
             async with db.transaction():
-                payload_to_create = Payload(**sanitized_payload_status)
+                payload_to_create = Payload(**sanitized_payload)
+                payload_status_to_create = PayloadStatus(**sanitized_payload_status)
                 created_payload = await payload_to_create.create()
-                dump = created_payload.dump()
-                logger.info(f"DB Transaction {created_payload} - {dump}")
+                created_payload_status = await payload_status_to_create.create()
+                payload_dump = created_payload.dump()
+                payload_status_dump = created_payload_status.dump()
+                logger.info(f"DB Transaction {created_payload} - {payload_dump}")
+                logger.info(f"DB Transaction {created_payload_status} - {payload_status_dump}")
+                dump = {**payload_dump, **payload_status_dump}
                 dump['date'] = str(dump['date'])
                 dump['created_at'] = str(dump['created_at'])
                 await sio.emit('payload', dump)
