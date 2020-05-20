@@ -17,17 +17,21 @@ depends_on = None
 
 
 def upgrade():
+    op.drop_index('payloads_id_idx', table_name='payloads')
     op.drop_index('payloads_date_idx', table_name='payloads')
     op.drop_index('payloads_service_idx', table_name='payloads')
     op.drop_index('payloads_source_idx', table_name='payloads')
     op.drop_index('payloads_status_idx', table_name='payloads')
     op.drop_index('payloads_status_msg_idx', table_name='payloads')
 
+    op.drop_column('payloads', 'id')
     op.drop_column('payloads', 'service')
     op.drop_column('payloads', 'source')
     op.drop_column('payloads', 'status')
     op.drop_column('payloads', 'status_msg')
     op.drop_column('payloads', 'date')
+
+    op.create_primary_key('payloads_request_id_pkey', 'payloads', ['request_id'])
 
     op.create_table(
         'payload_statuses',
@@ -39,8 +43,13 @@ def upgrade():
         sa.Column('status_msg', sa.String(), nullable=True),
         sa.Column('date', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
         sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-        sa.PrimaryKeyConstraint('id')
+        sa.PrimaryKeyConstraint('id'),
+        sa.ForeignKeyConstraint(['request_id'], ['payloads.request_id'])
     )
+
+    op.alter_column('payload_statuses', 'date', type_=sa.DateTime(timezone=True), server_default=sa.text("timezone('utc'::text, now())"))
+    op.alter_column('payload_statuses', 'created_at', type_=sa.DateTime(timezone=True), server_default=sa.text("timezone('utc'::text, now())"))
+
 
     op.create_index('payload_statuses_id_idx', 'payload_statuses', ['id'], unique=True)
     op.create_index('payload_statuses_request_id_idx', 'payload_statuses', ['request_id'], unique=False)
@@ -64,6 +73,7 @@ def downgrade():
 
     op.drop_table('payload_statuses')
 
+    op.add_column('payloads', sa.Column('id', sa.Integer(), nullable=False, autoincrement=True))
     op.add_column('payloads', sa.Column('service', sa.String(), nullable=False))
     op.add_column('payloads', sa.Column('source', sa.String(), nullable=False))
     op.add_column('payloads', sa.Column('status', sa.String(), nullable=True))
@@ -75,3 +85,4 @@ def downgrade():
     op.create_index('payloads_source_idx', 'payloads', ['source'], unique=False)
     op.create_index('payloads_service_idx', 'payloads', ['service'], unique=False)
     op.create_index('payloads_date_idx', 'payloads', ['date'], unique=False)
+    op.create_index('payloads_id_idx', 'payloads', ['date'], unique=True)

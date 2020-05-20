@@ -18,9 +18,8 @@ async def disconnect():
 class Payload(db.Model):
     __tablename__ = 'payloads'
 
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    request_id = db.Column(db.Unicode, primary_key=True)
     account = db.Column(db.Unicode)
-    request_id = db.Column(db.Unicode)
     inventory_id = db.Column(db.Unicode)
     system_id = db.Column(db.Unicode)
     created_at = db.Column(db.DateTime(timezone=True), server_default="timezone('utc'::text, now())")
@@ -33,7 +32,7 @@ class PayloadStatus(db.Model):
     __tablename__ = 'payload_statuses'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    request_id = db.Column(db.Unicode)
+    request_id = db.Column(db.Unicode, db.ForeignKey('payloads.request_id'))
     service = db.Column(db.Unicode)
     source = db.Column(db.Unicode)
     status = db.Column(db.Unicode)
