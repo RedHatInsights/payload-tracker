@@ -20,14 +20,14 @@ def upgrade():
     op.create_table(
         'payloads',
         sa.Column('request_id', sa.String(), nullable=False),
-        sa.Column('account', sa.String(), nullable=False),
+        sa.Column('account', sa.String(), nullable=True),
         sa.Column('inventory_id', sa.String(), nullable=True),
         sa.Column('system_id', sa.String(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text("timezone('utc'::text, now())"), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text("timezone('utc'::text, now())"), nullable=False),
         sa.PrimaryKeyConstraint('request_id')
     )
 
-    op.create_index('payloads_request_id_idx', 'payloads', ['request_id'], unique=False)
+    op.create_index('payloads_request_id_idx', 'payloads', ['request_id'], unique=True)
     op.create_index('payloads_account_idx', 'payloads', ['account'], unique=False)
     op.create_index('payloads_inventory_id_idx', 'payloads', ['inventory_id'], unique=False)
     op.create_index('payloads_system_id_idx', 'payloads', ['system_id'], unique=False)
@@ -39,10 +39,10 @@ def upgrade():
         sa.Column('request_id', sa.String(), nullable=False),
         sa.Column('service', sa.String(), nullable=False),
         sa.Column('source', sa.String(), nullable=True),
-        sa.Column('status', sa.String(), nullable=True),
+        sa.Column('status', sa.String(), nullable=False),
         sa.Column('status_msg', sa.String(), nullable=True),
-        sa.Column('date', sa.DateTime(timezone=True), server_default=sa.text("timezone('utc'::text, now())"), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text("timezone('utc'::text, now())"), nullable=True),
+        sa.Column('date', sa.DateTime(timezone=True), server_default=sa.text("timezone('utc'::text, now())"), nullable=False),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text("timezone('utc'::text, now())"), nullable=False),
         sa.PrimaryKeyConstraint('id'),
         sa.ForeignKeyConstraint(['request_id'], ['payloads.request_id'])
     )
