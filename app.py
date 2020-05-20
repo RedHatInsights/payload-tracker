@@ -243,31 +243,41 @@ async def process_payload_status(json_msgs):
                 logger.info(f"Payload {data} missing keys {missing_keys}. Expected {expected_keys}")
                 continue
 
-            logger.info("Payload message has expected keys. Begin sanitizing")
-
             # make things lower-case
             data['service'] = data['service'].lower()
             data['status'] = data['status'].lower()
 
-            # check if not request_id in Payloads Table
-            payload_count = await db.scalar(
-                db.exists().where(Payload.request_id == data['request_id']).select()
-            )
+            logger.info("Payload message has expected keys. Begin sanitizing")
+            # sanitize the payload status
+            sanitized_payload = {'request_id': data['request_id']}
+            for key in ['inventory_id', 'system_id', 'account']:
+                if key in data:
+                    sanitized_payload[key] = data[key]
 
-            if payload_count == 0:
-                # sanitize the payload status
-                sanitized_payload = {'request_id': data['request_id']}
+            # check if not request_id in Payloads Table and update columns
+            try:
+                payload = await Payload.query.where(
+                    Payload.request_id == sanitized_payload['request_id']
+                ).gino.all()
 
-                for key in ['inventory_id', 'system_id', 'account']:
-                    if key in data:
-                        sanitized_payload[key] = data[key]
+                if payload == []:
+                    logger.info(f"Sanitized Payload for DB {sanitized_payload}")
+                    async with db.transaction():
+                        payload_to_create = Payload(**sanitized_payload)
+                        created_payload = await payload_to_create.create()
+                        dump = created_payload.dump()
+                        logger.info(f"DB Transaction {created_payload} - {dump}")
+                elif len(payload) == 1:
+                    payload_dump = payload[0].dump()
+                    values = {k: v for k, v in sanitized_payload.items() if k not in payload_dump}
+                    if len(values) > 0:
+                        await Payload.update.values(**values).where(
+                            Payload.request_id == sanitized_payload['request_id']
+                        ).gino.status()
+            except:
+                logger.error(f"Failed to parse message with Error: {traceback.format_exc()}")
+                continue
 
-                logger.info(f"Sanitized Payload for DB {sanitized_payload}")
-                async with db.transaction():
-                    payload_to_create = Payload(**sanitized_payload)
-                    created_payload = await payload_to_create.create()
-                    dump = created_payload.dump()
-                    logger.info(f"DB Transaction {created_payload} - {dump}")
 
             sanitized_payload_status = {
                 'service': data['service'],
@@ -294,14 +304,18 @@ async def process_payload_status(json_msgs):
 
             logger.info(f"Sanitized Payload Status for DB {sanitized_payload_status}")
             # insert into database
-            async with db.transaction():
-                payload_status_to_create = PayloadStatus(**sanitized_payload_status)
-                created_payload_status = await payload_status_to_create.create()
-                dump = created_payload_status.dump()
-                logger.info(f"DB Transaction {created_payload_status} - {dump}")
-                dump['date'] = str(dump['date'])
-                dump['created_at'] = str(dump['created_at'])
-                await sio.emit('payload', dump)
+            try:
+                async with db.transaction():
+                    payload_status_to_create = PayloadStatus(**sanitized_payload_status)
+                    created_payload_status = await payload_status_to_create.create()
+                    dump = created_payload_status.dump()
+                    logger.info(f"DB Transaction {created_payload_status} - {dump}")
+                    dump['date'] = str(dump['date'])
+                    dump['created_at'] = str(dump['created_at'])
+                    await sio.emit('payload', dump)
+            except:
+                logger.error(f"Failed to parse message with Error: {traceback.format_exc()}")
+                continue
         else:
             continue
 
