@@ -269,7 +269,7 @@ async def process_payload_status(json_msgs):
                         logger.info(f"DB Transaction {created_payload} - {dump}")
                 elif len(payload) == 1:
                     payload_dump = payload[0].dump()
-                    values = {k: v for k, v in sanitized_payload.items() if k not in payload_dump}
+                    values = {k: v for k, v in sanitized_payload.items() if k not in payload_dump or payload_dump[k] is None}
                     if len(values) > 0:
                         await Payload.update.values(**values).where(
                             Payload.request_id == sanitized_payload['request_id']
@@ -277,7 +277,6 @@ async def process_payload_status(json_msgs):
             except:
                 logger.error(f"Failed to parse message with Error: {traceback.format_exc()}")
                 continue
-
 
             sanitized_payload_status = {
                 'service': data['service'],
