@@ -32,16 +32,13 @@ paths:
           type: string
           default: date
           enum: [service, source, account, request_id, inventory_id, system_id, status, status_msg, date, created_at]
-        - name: status
+        - name: sort_dir
           in: query
-          description: filter for status
+          description: Direction to sort
           required: false
           type: string
-        - name: service
-          in: query
-          required: false
-          description: filter for service
-          type: string
+          default: desc
+          enum: [asc, desc]
         - name: inventory_id
           in: query
           required: false
@@ -52,12 +49,140 @@ paths:
           required: false
           description: filter for account
           type: string
+        - name: system_id
+          in: query
+          required: false
+          type: string
+        - name: created_at_lt
+          in: query
+          required: false
+          type: string
+          format: date-time
+        - name: created_at_lte
+          in: query
+          required: false
+          type: string
+          format: date-time
+        - name: created_at_gt
+          in: query
+          required: false
+          type: string
+          format: date-time
+        - name: created_at_gte
+          in: query
+          required: false
+          type: string
+          format: date-time
+      responses:
+        '200':
+          description: ''
+          schema:
+            type: object
+            required:
+              - count
+              - elapsed
+              - data
+            properties:
+              count:
+                type: integer
+                description: Total number of payloads with filters only
+              elapsed:
+                type: string
+                description: Total elapsed time in seconds of API request
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/PayloadRetrieve'
+                description: List of payloads based on the filters, page size and offset
+        '404':
+          $ref: '#/responses/NotFound'
+  /payloads/{request_id}:
+    get:
+      description: ''
+      parameters: []
+      responses:
+        '200':
+          description: 'Get single payload successful response'
+          schema:
+            type: object
+            required:
+              - data
+              - durations
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/PayloadRetrieveByID'
+                description: List of payloads based on the filters, page size and offset
+              durations:
+                type: object
+                items:
+                  $ref: '#/definitions/DurationsRetrieve'
+                description: Object with each service as a key and timedelta as an object
+        '404':
+            $ref: '#/responses/NotFound'
+    parameters:
+      - name: request_id
+        in: path
+        description: A unique value identifying this payload.
+        required: true
+        type: string
+      - name: sort_by
+        in: query
+        description: Attribute to sort results by
+        required: false
+        type: string
+        default: date
+        enum: [service, source, status, status_msg, date, created_at]
+      - name: sort_dir
+        in: query
+        description: Direction to sort
+        required: false
+        type: string
+        default: asc
+        enum: [asc, desc]
+  /statuses:
+    get:
+      description: ''
+      parameters:
+        - name: page
+          in: query
+          description: A page number within the paginated result set.
+          required: false
+          type: integer
+          default: 0
+        - name: page_size
+          in: query
+          description: Size of the page
+          required: false
+          type: integer
+          default: 10
+        - name: sort_by
+          in: query
+          description: Attribute to sort results by
+          required: false
+          type: string
+          default: date
+          enum: [service, source, request_id, status, status_msg, date, created_at]
+        - name: sort_dir
+          in: query
+          description: Direction to sort
+          required: false
+          type: string
+          default: desc
+          enum: [asc, desc]
+        - name: service
+          in: query
+          required: false
+          description: filter for service
+          type: string
         - name: source
           in: query
           required: false
           type: string
-        - name: system_id
+        - name: status
           in: query
+          description: filter for status
           required: false
           type: string
         - name: status_msg
@@ -104,13 +229,6 @@ paths:
           required: false
           type: string
           format: date-time
-        - name: sort_dir
-          in: query
-          description: Direction to sort
-          required: false
-          type: string
-          default: desc
-          enum: [asc, desc]
       responses:
         '200':
           description: ''
@@ -123,62 +241,15 @@ paths:
             properties:
               count:
                 type: integer
-                description: Total number of payloads with filters only
+                description: Total number of statuses with filters only
               elapsed:
                 type: string
                 description: Total elapsed time in seconds of API request
               data:
                 type: array
                 items:
-                  $ref: '#/definitions/PayloadRetrieve'
-                description: List of payloads based on the filters, page size and offset
-        '404':
-          $ref: '#/responses/NotFound'
-  /payloads/{request_id}:
-    get:
-      description: ''
-      parameters: []
-      responses:
-        '200':
-          description: 'Get single payload successful response'
-          schema:
-            type: object
-            required:
-              - data
-              - durations
-            properties:
-              data:
-                type: array
-                items:
-                  $ref: '#/definitions/PayloadRetrieve'
-                description: List of payloads based on the filters, page size and offset
-              durations:
-                type: object
-                items:
-                  $ref: '#/definitions/DurationsRetrieve'
-                description: Object with each service as a key and timedelta as an object
-        '404':
-            $ref: '#/responses/NotFound'
-    parameters:
-      - name: request_id
-        in: path
-        description: A unique value identifying this payload.
-        required: true
-        type: string
-      - name: sort_by
-        in: query
-        description: Attribute to sort results by
-        required: false
-        type: string
-        default: date
-        enum: [service, source, status, status_msg, date, created_at]
-      - name: sort_dir
-        in: query
-        description: Direction to sort
-        required: false
-        type: string
-        default: asc
-        enum: [asc, desc]
+                  $ref: '#/definitions/StatusRetrieve'
+                description: List of statuses based on the filters, page size and offset
   /stats:
     get:
       description: ''
@@ -210,7 +281,7 @@ definitions:
         type: string
     required:
       - message
-  PayloadRetrieve:
+  PayloadRetrieveByID:
     required:
       - request_id
     type: object
@@ -237,6 +308,63 @@ definitions:
       system_id:
         title: System ID
         type: string
+      status:
+        title: Status
+        type: string
+      status_msg:
+        title: Status Message
+        type: string
+      date:
+        title: Status Date
+        type: string
+        format: date-time
+        readOnly: true
+      created_at:
+        title: Created at
+        type: string
+        format: date-time
+        readOnly: true
+  PayloadRetrieve:
+    required:
+      - request_id
+    type: object
+    properties:
+      account:
+        title: Account
+        type: string
+      request_id:
+        title: Request ID
+        type: string
+        minLength: 1
+      inventory_id:
+        title: Inventory ID
+        type: string
+      system_id:
+        title: System ID
+        type: string
+      created_at:
+        title: Created at
+        type: string
+        format: date-time
+        readOnly: true
+  StatusRetrieve:
+    required:
+      - request_id
+    type: object
+    properties:
+      id:
+        title: Id
+        type: string
+      service:
+        title: Service
+        type: string
+      source:
+        title: Source
+        type: string
+      request_id:
+        title: Request ID
+        type: string
+        minLength: 1
       status:
         title: Status
         type: string
