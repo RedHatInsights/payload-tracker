@@ -31,7 +31,7 @@ paths:
           required: false
           type: string
           default: date
-          enum: [service, source, account, request_id, inventory_id, system_id, status, status_msg, date, created_at]
+          enum: [account, inventory_id, system_id, created_at]
         - name: sort_dir
           in: query
           description: Direction to sort
@@ -39,15 +39,15 @@ paths:
           type: string
           default: desc
           enum: [asc, desc]
-        - name: inventory_id
-          in: query
-          required: false
-          description: filter for inventory_id
-          type: string
         - name: account
           in: query
           required: false
           description: filter for account
+          type: string
+        - name: inventory_id
+          in: query
+          required: false
+          description: filter for inventory_id
           type: string
         - name: system_id
           in: query
@@ -143,7 +143,7 @@ paths:
         enum: [asc, desc]
   /statuses:
     get:
-      description: ''
+      description: 'Get individual payload statuses for payloads.'
       parameters:
         - name: page
           in: query
@@ -325,17 +325,15 @@ definitions:
         format: date-time
         readOnly: true
   PayloadRetrieve:
-    required:
-      - request_id
     type: object
     properties:
-      account:
-        title: Account
-        type: string
       request_id:
         title: Request ID
         type: string
         minLength: 1
+      account:
+        title: Account
+        type: string
       inventory_id:
         title: Inventory ID
         type: string
@@ -348,8 +346,6 @@ definitions:
         format: date-time
         readOnly: true
   StatusRetrieve:
-    required:
-      - request_id
     type: object
     properties:
       id:
