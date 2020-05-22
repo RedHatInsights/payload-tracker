@@ -18,32 +18,7 @@ Payload Tracker is a service that lives in `platform-<env>`. This service has it
 
 REST API Endpoints
 --------------------
-Please see the Swagger Spec for API Endpoints. The API Swagger Spec is located in `swagger/api.spec.yaml`. They are currently as follows and can be combined:
-```
-/v1/payloads
-	?page=<integer>
-	?page_size=<integer>
-	?sort_by=<string>[service, source, account, request_id, inventory_id, system_id, status, status_msg, date, created_at]
-	?status=<string>(The status as given on the Payload.)
-	?service=<string>(The service that processed the Payload.)
-	?inventory_id=<string>(The Inventory ID, if received on the Payload.)
-	?account=<string>(An account number, if received on the Payload.)
-	?source=<string>(A source received by the Payload, usually indicated a third-party rule hit.)
-	?system_id=<string>(The Physical Machine ID if it was received on the Payload.)
-	?status_msg=<string>(A verbose status message given with the Payload.)
-	?date_lt=<string>(YYYY-MM-DD)
-	?date_lte=<string>(YYYY-MM-DD)
-	?date_gt=<string>(YYYY-MM-DD)
-	?date_gte=<string>(YYYY-MM-DD)
-	?created_at_lt=<string>(YYYY-MM-DD)
-	?created_at_lte=<string>(YYYY-MM-DD)
-	?created_at_gt=<string>(YYYY-MM-DD)
-	?created_at_gte=<string>(YYYY-MM-DD)
-	?sort_dir=<string>(asc, desc)
-/v1/payloads/{request_id}
-	?sort_by=<string>[service, source, status, status_msg, date]
-	?sort_dir=<string>(asc, desc)
-```
+Please see the Swagger Spec for API Endpoints. The API Swagger Spec is located in `swagger/api.spec.yaml`.
 
 
 Integration
@@ -131,9 +106,11 @@ Sending Mock Payloads
 pip install --dev
 ```
 
-2. Run the manual mock payload
+2. Run the manual mock payload or mock load test
 ```
+pipenv shell
 python manual_tests/mock_payload.py
+python manual_tests/mock_loaddtest.py
 ```
 
 
