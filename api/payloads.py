@@ -1,4 +1,4 @@
-from db import Payload, db
+from db import Payload, PayloadStatus, db
 from dateutil import parser
 import responses
 import operator
@@ -23,8 +23,7 @@ async def search(*args, **kwargs):
         payload_query = Payload.query
 
         # These filters are used to filter within the database using equality comparisons
-        basic_eq_filters = ['status', 'service', 'inventory_id', 'account',
-                            'source', 'system_id', 'status_msg']
+        basic_eq_filters = ['account', 'inventory_id', 'system_id']
 
         # Compose where clauses for any of the basic equality filters in the kwargs
         for search_param_key in kwargs:
@@ -36,7 +35,7 @@ async def search(*args, **kwargs):
         # Perform comparisons on date fields 'date', and 'created_at'
         date_group_fns = {'_lt': operator.lt, '_lte': operator.le,
                           '_gt': operator.gt, '_gte': operator.ge}
-        for date_field in ['date', 'created_at']:
+        for date_field in ['created_at']:
             for date_group_str, date_group_fn in date_group_fns.items():
                 if date_field + date_group_str in kwargs:
                     the_date = parser.parse(kwargs[date_field + date_group_str])
@@ -103,23 +102,35 @@ def _get_durations(payloads):
 
 async def get(request_id, *args, **kwargs):
 
-    payloads = None
+    payload = None
+    payload_statuses = None
     payload_dump = []
+    payload_statuses_dump = []
 
     # initialize connection
     async with db.bind.acquire() as conn:
 
         logger.debug(f"Payloads.get({request_id}, {args}, {kwargs})")
         sort_func = getattr(db, kwargs['sort_dir'])
-        payloads = await conn.all(Payload.query.where(
-            Payload.request_id == request_id
+        payload_statuses = await conn.all(PayloadStatus.query.where(
+            PayloadStatus.request_id == request_id
         ).order_by(
             sort_func(kwargs['sort_by'])
         ))
 
-    if payloads is None:
+    if payload_statuses is None:
         return responses.not_found()
     else:
-        payload_dump = [payload.dump() for payload in payloads]
-        durations = _get_durations(payload_dump)
-        return responses.get_with_duration(payload_dump, durations)
+        payload_statuses_dump = [payload_status.dump() for payload_status in payload_statuses]
+        durations = _get_durations(payload_statuses_dump)
+
+        async with db.bind.acquire() as conn:
+            payload = await conn.all(Payload.query.where(Payload.request_id == request_id))
+
+        payload_dump = [p.dump() for p in payload]
+        for payload_status in payload_statuses_dump:
+            payload_status['account'] = payload_dump[0]['account']
+            payload_status['inventory_id'] = payload_dump[0]['inventory_id']
+            payload_status['system_id'] = payload_dump[0]['system_id']
+
+        return responses.get_with_duration(payload_statuses_dump, durations)

@@ -30,7 +30,7 @@ paths:
           description: Attribute to sort results by
           required: false
           type: string
-          default: date
+          default: created_at
           enum: [account, inventory_id, system_id, created_at]
         - name: sort_dir
           in: query

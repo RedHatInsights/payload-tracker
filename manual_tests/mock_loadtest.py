@@ -96,7 +96,7 @@ def produceMessageCallback(err, msg):
 print("Posting payload status")
 p = Producer({'bootstrap.servers': os.environ.get('BOOTSTRAP_SERVERS', 'localhost:29092')})
 
-for x in range(10):  # increase this for more messages
+for x in range(100):  # increase this for more messages
     payloads = generatePayloads()
     for payload in payloads:
         payload['date'] = str(datetime.datetime.now())
