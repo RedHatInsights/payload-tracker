@@ -94,8 +94,14 @@ PYTHONPATH=. alembic upgrade head
 ```
 
 4. Start the server
+
+If you are only running the API/Server service then run this command:
 ```
 pipenv run server
+```
+If you are running the frontend along with this service then run this command instead. This defines the API_PORT so that it will not conflict with the frontend. The frontend has a proxy pass set.
+```
+API_PORT=8081 pipenv run server
 ```
 
 
