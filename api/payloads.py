@@ -129,8 +129,8 @@ async def get(request_id, *args, **kwargs):
 
         payload_dump = [p.dump() for p in payload]
         for payload_status in payload_statuses_dump:
-            payload_status['account'] = payload_dump[0]['account']
-            payload_status['inventory_id'] = payload_dump[0]['inventory_id']
-            payload_status['system_id'] = payload_dump[0]['system_id']
+            for key in ['account', 'inventory_id', 'system_id']:
+                if key in payload_dump:
+                    payload_status[key] = payload_dump[key]
 
         return responses.get_with_duration(payload_statuses_dump, durations)
