@@ -14,7 +14,7 @@ import connexion
 import socketio
 from connexion.resolver import RestyResolver
 
-from db import init_db, db, Payload
+from db import init_db, db, Payload, PayloadStatus
 import tracker_logging
 from kibana_courier import KibanaCourier
 
@@ -249,12 +249,42 @@ async def process_payload_status(json_msgs):
 
             logger.info("Payload message has expected keys. Begin sanitizing")
             # sanitize the payload status
+            sanitized_payload = {'request_id': data['request_id']}
+            for key in ['inventory_id', 'system_id', 'account']:
+                if key in data:
+                    sanitized_payload[key] = data[key]
+
+            # check if not request_id in Payloads Table and update columns
+            try:
+                payload = await Payload.query.where(
+                    Payload.request_id == sanitized_payload['request_id']
+                ).gino.all()
+
+                if payload == []:
+                    logger.info(f"Sanitized Payload for DB {sanitized_payload}")
+                    async with db.transaction():
+                        payload_to_create = Payload(**sanitized_payload)
+                        created_payload = await payload_to_create.create()
+                        dump = created_payload.dump()
+                        logger.info(f"DB Transaction {created_payload} - {dump}")
+                elif len(payload) == 1:
+                    payload_dump = payload[0].dump()
+                    values = {k: v for k, v in sanitized_payload.items() if k not in payload_dump or payload_dump[k] is None}
+                    if len(values) > 0:
+                        await Payload.update.values(**values).where(
+                            Payload.request_id == sanitized_payload['request_id']
+                        ).gino.status()
+            except:
+                logger.error(f"Failed to parse message with Error: {traceback.format_exc()}")
+                continue
+
             sanitized_payload_status = {
                 'service': data['service'],
                 'request_id': data['request_id'],
                 'status': data['status']
             }
-            for key in ['inventory_id', 'system_id', 'status_msg', 'source', 'account']:
+
+            for key in ['status_msg', 'source']:
                 if key in data:
                     sanitized_payload_status[key] = data[key]
 
@@ -271,17 +301,20 @@ async def process_payload_status(json_msgs):
                                          sanitized_payload_status['status'],
                                          sanitized_payload_status['date'])
 
-            logger.info(f"Sanitized Payload for DB {sanitized_payload_status}")
+            logger.info(f"Sanitized Payload Status for DB {sanitized_payload_status}")
             # insert into database
-            async with db.transaction():
-                payload_to_create = Payload(**sanitized_payload_status)
-                created_payload = await payload_to_create.create()
-                dump = created_payload.dump()
-                logger.info(f"DB Transaction {created_payload} - {dump}")
-                dump['date'] = str(dump['date'])
-                dump['created_at'] = str(dump['created_at'])
-                await sio.emit('payload', dump)
-
+            try:
+                async with db.transaction():
+                    payload_status_to_create = PayloadStatus(**sanitized_payload_status)
+                    created_payload_status = await payload_status_to_create.create()
+                    dump = created_payload_status.dump()
+                    logger.info(f"DB Transaction {created_payload_status} - {dump}")
+                    dump['date'] = str(dump['date'])
+                    dump['created_at'] = str(dump['created_at'])
+                    await sio.emit('payload', dump)
+            except:
+                logger.error(f"Failed to parse message with Error: {traceback.format_exc()}")
+                continue
         else:
             continue
 
