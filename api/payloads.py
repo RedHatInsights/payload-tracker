@@ -128,9 +128,10 @@ async def get(request_id, *args, **kwargs):
             payload = await conn.all(Payload.query.where(Payload.request_id == request_id))
 
         payload_dump = [p.dump() for p in payload]
-        for payload_status in payload_statuses_dump:
-            for key in ['account', 'inventory_id', 'system_id']:
-                if key in payload_dump:
-                    payload_status[key] = payload_dump[key]
+        if len(payload_dump) > 0:
+            for payload_status in payload_statuses_dump:
+                for key in ['account', 'inventory_id', 'system_id']:
+                    if key in payload_dump[0]:
+                        payload_status[key] = payload_dump[0][key]
 
         return responses.get_with_duration(payload_statuses_dump, durations)
