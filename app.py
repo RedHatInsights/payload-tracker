@@ -255,14 +255,15 @@ async def process_payload_status(json_msgs):
                     sanitized_payload[key] = data[key]
 
             # check if not request_id in Payloads Table and update columns
-            try:
+            async def get_payload():
                 payload = await Payload.query.where(
                     Payload.request_id == sanitized_payload['request_id']
                 ).gino.all()
-
+                return payload[0].dump() if len(payload) > 0 else None
+            try:
+                payload_dump = await get_payload()
                 logger.info(f"Sanitized Payload for DB {sanitized_payload}")
-                if len(payload) == 1:
-                    payload_dump = payload[0].dump()
+                if payload_dump:
                     values = {k: v for k, v in sanitized_payload.items() if k not in payload_dump or payload_dump[k] is None}
                     if len(values) > 0:
                         await Payload.update.values(**values).where(
@@ -276,8 +277,8 @@ async def process_payload_status(json_msgs):
                             dump = created_payload.dump()
                             logger.info(f"DB Transaction {created_payload} - {dump}")
                     except:
-                        logger.error(f'Failed to insert Payload into Table -- will retry')
-                        payload_dump = payload[0].dump()
+                        logger.error(f'Failed to insert Payload into Table -- will retry update')
+                        payload_dump = await get_payload()
                         values = {k: v for k, v in sanitized_payload.items() if k not in payload_dump or payload_dump[k] is None}
                         if len(values) > 0:
                             await Payload.update.values(**values).where(
