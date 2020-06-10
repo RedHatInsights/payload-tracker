@@ -18,7 +18,8 @@ async def disconnect():
 class Payload(db.Model):
     __tablename__ = 'payloads'
 
-    request_id = db.Column(db.Unicode, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    request_id = db.Column(db.Unicode)
     account = db.Column(db.Unicode)
     inventory_id = db.Column(db.Unicode)
     system_id = db.Column(db.Unicode)
@@ -32,13 +33,33 @@ class PayloadStatus(db.Model):
     __tablename__ = 'payload_statuses'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    request_id = db.Column(db.Unicode, db.ForeignKey('payloads.request_id'))
-    service = db.Column(db.Unicode)
-    source = db.Column(db.Unicode)
+    payload_id = db.Column(db.Integer, db.ForeignKey('payloads.id', ondelete='CASCADE'))
+    service_id = db.Column(db.Integer, db.ForeignKey('services.id'))
+    source_id = db.Column(db.Integer, db.ForeignKey('sources.id'))
     status = db.Column(db.Unicode)
     status_msg = db.Column(db.Unicode)
     date = db.Column(db.DateTime(timezone=True), server_default="timezone('utc'::text, now())")
     created_at = db.Column(db.DateTime(timezone=True), server_default="timezone('utc'::text, now())")
+
+    def dump(self):
+        return {k: v for k, v in self.__values__.items() if v is not None}
+
+
+class Sources(db.Model):
+    __tablename__ = 'sources'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.Unicode, unique=True)
+
+    def dump(self):
+        return {k: v for k, v in self.__values__.items() if v is not None}
+
+
+class Services(db.Model):
+    __tablename__ = 'services'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.Unicode, unique=True)
 
     def dump(self):
         return {k: v for k, v in self.__values__.items() if v is not None}

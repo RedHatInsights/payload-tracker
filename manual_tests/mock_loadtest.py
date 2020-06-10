@@ -6,10 +6,14 @@ from random import randint
 from confluent_kafka import Producer
 
 
+sources = ['compliance-sidekiq', 'inventory', 'insights-client', 'compliance-consumer']
+
+
 def generatePayloads():
     request_id = str(uuid.uuid1())
     inventory_id = str(uuid.uuid1())
     system_id = str(uuid.uuid1())
+    source = sources[randint(0, len(sources) - 1)]
     account = str(randint(pow(10, 5), pow(10,6) - 1))
     print(f'request_id: {request_id}')
     return [
@@ -52,7 +56,8 @@ def generatePayloads():
             'service': 'insights-advisor-service',
             'request_id': request_id,
             'status': 'received',
-            'inventory_id': inventory_id
+            'inventory_id': inventory_id,
+            'source': source
         },
         {
             'service': 'insights-advisor-service',
