@@ -343,11 +343,12 @@ async def process_payload_status(json_msgs):
                     dump['date'] = str(dump['date'])
                     dump['created_at'] = str(dump['created_at'])
                     # change id values back to strings for sockets
-                    for column in ['payload_id', 'service', 'source']:
+                    dump['request_id'] = data['request_id']
+                    del dump['payload_id']
+                    for column in ['service', 'source']:
                         if column in data:
                             dump[column] = data[column]
-                            if column is not 'payload_id':
-                                del dump[f'{column}_id']
+                            del dump[f'{column}_id']
                     await sio.emit('payload', dump)
             except:
                 logger.error(f"Failed to parse message with Error: {traceback.format_exc()}")
