@@ -78,28 +78,29 @@ def _get_durations(services, payloads):
     service_to_duration = {}
     all_times = []
 
-    for key, service in services.items():
-        for payload in payloads:
-            all_times.append(payload['date'])
-            if payload['service'] == service:
-                if service in service_to_times:
-                    service_to_times[service].append(payload['date'])
-                else:
-                    service_to_times[service] = [payload['date']]
-    
-    all_times.sort()
-    service_to_duration['total_time'] = str(all_times[-1] - all_times[0])
+    if len(payloads) > 0:
+        for key, service in services.items():
+            for payload in payloads:
+                all_times.append(payload['date'])
+                if payload['service'] == service:
+                    if service in service_to_times:
+                        service_to_times[service].append(payload['date'])
+                    else:
+                        service_to_times[service] = [payload['date']]
 
-    for service in services.values():
-        if service in service_to_times.keys():
-            times = [time for time in service_to_times[service]]
-            times.sort()
-            if 'total_time_in_services' in service_to_duration.keys():
-                service_to_duration['total_time_in_services'] += times[-1] - times[0]
-            else:
-                service_to_duration['total_time_in_services'] = times[-1] - times[0]
-            service_to_duration[service] = str(times[-1] - times[0])
-    service_to_duration['total_time_in_services'] = str(service_to_duration['total_time_in_services'])
+        all_times.sort()
+        service_to_duration['total_time'] = str(all_times[-1] - all_times[0])
+
+        for service in services.values():
+            if service in service_to_times.keys():
+                times = [time for time in service_to_times[service]]
+                times.sort()
+                if 'total_time_in_services' in service_to_duration.keys():
+                    service_to_duration['total_time_in_services'] += times[-1] - times[0]
+                else:
+                    service_to_duration['total_time_in_services'] = times[-1] - times[0]
+                service_to_duration[service] = str(times[-1] - times[0])
+        service_to_duration['total_time_in_services'] = str(service_to_duration['total_time_in_services'])
 
     return service_to_duration
 
@@ -134,7 +135,7 @@ async def get(request_id, *args, **kwargs):
             )
         )
 
-    if payload_statuses == []:
+    if payload_statuses is None:
         return responses.not_found()
     else:
         dump_columns = [*status_columns, *payload_columns]

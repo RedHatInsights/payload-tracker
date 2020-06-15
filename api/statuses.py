@@ -94,7 +94,7 @@ async def search(*args, **kwargs):
         elapsed = stop - start
 
     # Send results
-    if statuses == []:
+    if statuses is None:
         return responses.not_found()
     else:
         return responses.search(statuses_count, statuses_dump, elapsed)
