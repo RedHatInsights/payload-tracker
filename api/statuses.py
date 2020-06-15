@@ -71,7 +71,12 @@ async def search(*args, **kwargs):
         # Then apply page size and offset
         sort_func = getattr(db, kwargs['sort_dir'])
         statuses_query = statuses_query.limit(kwargs['page_size']).offset(
-                kwargs['page'] * kwargs['page_size']).order_by(sort_func(kwargs['sort_by']))
+                kwargs['page'] * kwargs['page_size'])
+
+        if kwargs['sort_by'] in ['source', 'service']:
+            statuses_query = statuses_query.order_by(sort_func(f'{kwargs["sort_by"]}_id'))
+        else:
+            statuses_query = statuses_query.order_by(sort_func(kwargs['sort_by']))
 
         # Compile set of statuses from the database
         statuses = await conn.all(statuses_query.select_from(

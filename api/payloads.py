@@ -123,17 +123,21 @@ async def get(request_id, *args, **kwargs):
 
         logger.debug(f"Payloads.get({request_id}, {args}, {kwargs})")
         sort_func = getattr(db, kwargs['sort_dir'])
-        payload_statuses = await conn.all(
-            statuses_query.select_from(
-                PayloadStatus.join(
-                    Payload, PayloadStatus.payload_id == Payload.id, isouter=True
-                )
-            ).where(
-                Payload.request_id == request_id
-            ).order_by(
-                sort_func(kwargs['sort_by'])
+
+        statuses_query = statuses_query.select_from(
+            PayloadStatus.join(
+                Payload, PayloadStatus.payload_id == Payload.id, isouter=True
             )
+        ).where(
+            Payload.request_id == request_id
         )
+
+        if kwargs['sort_by'] in ['source', 'service']:
+            statuses_query = statuses_query.order_by(sort_func(f'{kwargs["sort_by"]}_id'))
+        else:
+            statuses_query = statuses_query.order_by(sort_func(kwargs['sort_by']))
+
+        payload_statuses = await conn.all(statuses_query)
 
     if payload_statuses is None:
         return responses.not_found()
