@@ -14,7 +14,8 @@ import connexion
 import socketio
 from connexion.resolver import RestyResolver
 
-from db import init_db, db, Payload, PayloadStatus
+from db import init_db, db, Payload, PayloadStatus, Services, Sources
+from cache import cache
 import tracker_logging
 from kibana_courier import KibanaCourier
 
@@ -104,7 +105,6 @@ payload_status_total_times = {}
 #               }
 # }
 payload_status_service_total_times = {}
-
 
 def check_payload_status_metrics(request_id, service, status, service_date=None):
 
@@ -246,6 +246,8 @@ async def process_payload_status(json_msgs):
             # make things lower-case
             data['service'] = data['service'].lower()
             data['status'] = data['status'].lower()
+            if 'source' in data:
+                data['source'] = data['source'].lower()
 
             logger.info("Payload message has expected keys. Begin sanitizing")
             # sanitize the payload status
@@ -254,16 +256,18 @@ async def process_payload_status(json_msgs):
                 if key in data:
                     sanitized_payload[key] = data[key]
 
-            # check if not request_id in Payloads Table and update columns
+            sanitized_payload_status = {'status': data['status']}
+
+            # define method for retrieving values
             async def get_payload():
-                payload = await Payload.query.where(
-                    Payload.request_id == sanitized_payload['request_id']
-                ).gino.all()
+                payload = await Payload.query.where(Payload.request_id == data['request_id']).gino.all()
                 return payload[0].dump() if len(payload) > 0 else None
+            # check if not request_id in Payloads Table and update columns
             try:
                 payload_dump = await get_payload()
                 logger.info(f"Sanitized Payload for DB {sanitized_payload}")
                 if payload_dump:
+                    sanitized_payload_status['payload_id'] = payload_dump['id']
                     values = {k: v for k, v in sanitized_payload.items() if k not in payload_dump or payload_dump[k] is None}
                     if len(values) > 0:
                         await Payload.update.values(**values).where(
@@ -275,28 +279,45 @@ async def process_payload_status(json_msgs):
                             payload_to_create = Payload(**sanitized_payload)
                             created_payload = await payload_to_create.create()
                             dump = created_payload.dump()
+                            sanitized_payload_status['payload_id'] = dump['id']
                             logger.info(f"DB Transaction {created_payload} - {dump}")
                     except:
                         logger.error(f'Failed to insert Payload into Table -- will retry update')
                         payload_dump = await get_payload()
-                        values = {k: v for k, v in sanitized_payload.items() if k not in payload_dump or payload_dump[k] is None}
-                        if len(values) > 0:
-                            await Payload.update.values(**values).where(
-                                Payload.request_id == sanitized_payload['request_id']
-                            ).gino.status()
+                        if payload_dump:
+                            sanitized_payload_status['payload_id'] = payload_dump['id']
+                            values = {k: v for k, v in sanitized_payload.items() if k not in payload_dump or payload_dump[k] is None}
+                            if len(values) > 0:
+                                await Payload.update.values(**values).where(
+                                    Payload.request_id == sanitized_payload['request_id']
+                                ).gino.status()
             except:
                 logger.error(f"Failed to parse message with Error: {traceback.format_exc()}")
                 continue
 
-            sanitized_payload_status = {
-                'service': data['service'],
-                'request_id': data['request_id'],
-                'status': data['status']
-            }
+            # check if service/source is not in table
+            for column in ['service', 'source']:
+                current_column_items = cache.get_value(f'{column}s')
+                if column in data:
+                    try:
+                        if not data[column] in current_column_items.values():
+                            async with db.transaction():
+                                payload = {'name': data[column]}
+                                to_create = Services(**payload) if column is 'service' else Sources(**payload)
+                                created_value = await to_create.create()
+                                dump = created_value.dump()
+                                cache.set_value(f'{column}s', {dump['id']: dump['name']})
+                                logger.info(f'DB Transaction {payload} - {dump}')
+                                sanitized_payload_status[f'{column}_id'] = dump['id']
+                        else:
+                            cached_key = [k for k, v in current_column_items.items() if v == data[column]][0]
+                            sanitized_payload_status[f'{column}_id'] = cached_key
+                    except:
+                        logger.error(f'Failed to add {column} with Error: {traceback.format_exc()}')
+                        continue
 
-            for key in ['status_msg', 'source']:
-                if key in data:
-                    sanitized_payload_status[key] = data[key]
+            if 'status_msg' in data:
+                sanitized_payload_status['status_msg'] = data['status_msg']
 
             if 'date' in data:
                 try:
@@ -306,8 +327,8 @@ async def process_payload_status(json_msgs):
                     logger.error(f"Error parsing date: {the_error}")
 
             # Increment Prometheus Metrics
-            check_payload_status_metrics(sanitized_payload_status['request_id'],
-                                         sanitized_payload_status['service'],
+            check_payload_status_metrics(sanitized_payload_status['payload_id'],
+                                         data['service'],
                                          sanitized_payload_status['status'],
                                          sanitized_payload_status['date'])
 
@@ -321,6 +342,12 @@ async def process_payload_status(json_msgs):
                     logger.info(f"DB Transaction {created_payload_status} - {dump}")
                     dump['date'] = str(dump['date'])
                     dump['created_at'] = str(dump['created_at'])
+                    # change id values back to strings for sockets
+                    for column in ['payload_id', 'service', 'source']:
+                        if column in data:
+                            dump[column] = data[column]
+                            if column is not 'payload_id':
+                                del dump[f'{column}_id']
                     await sio.emit('payload', dump)
             except:
                 logger.error(f"Failed to parse message with Error: {traceback.format_exc()}")
@@ -354,6 +381,13 @@ async def setup_periodic_kibana_query():
         logger.info("Querying Kibana for new payloads")
         await query_kibana()
         await asyncio.sleep(30, loop=loop)
+
+
+async def update_current_services_and_sources(db):
+    res = await db.select([Services]).gino.all()
+    cache.set_value('services', dict(res))
+    res = await db.select([Sources]).gino.all()
+    cache.set_value('sources', dict(res))
 
 
 def start_prometheus():
@@ -390,7 +424,11 @@ if __name__ == "__main__":
 
         # setup http app and db
         logger.info("Setting up Database")
-        loop.create_task(setup_db())
+        db = loop.run_until_complete(setup_db())['db']
+
+        # update current services and sources
+        logger.info("Adding current services and sources to memory")
+        loop.create_task(update_current_services_and_sources(db))
 
         # setup sockets
         logger.info("Setting up sockets")

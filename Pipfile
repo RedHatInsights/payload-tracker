@@ -6,7 +6,7 @@ name = "pypi"
 [packages]
 prometheus-client = "*"
 logstash-formatter = "*"
-aiokafka = "*"
+aiokafka = "==0.5.2"
 kafkahelpers = "*"
 sqlalchemy = "*"
 werkzeug = "*"

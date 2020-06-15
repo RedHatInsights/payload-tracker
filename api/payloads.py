@@ -1,4 +1,7 @@
-from db import Payload, PayloadStatus, db
+from db import Payload, PayloadStatus, Services, Sources, db
+from cache import cache
+from sqlalchemy import inspect
+from sqlalchemy.orm import Bundle
 from dateutil import parser
 import responses
 import operator
@@ -7,6 +10,10 @@ import settings
 import time
 
 logger = logging.getLogger(settings.APP_NAME)
+
+
+def dump(cols, res):
+    return [{k.key: v for k, v in zip(cols, row) if v is not None} for row in res]
 
 
 async def search(*args, **kwargs):
@@ -20,7 +27,7 @@ async def search(*args, **kwargs):
     async with db.bind.acquire() as conn:
 
         # Base query
-        payload_query = Payload.query
+        payload_query = db.select([Bundle(Payload, *inspect(Payload).columns)])
 
         # These filters are used to filter within the database using equality comparisons
         basic_eq_filters = ['account', 'inventory_id', 'system_id']
@@ -53,7 +60,7 @@ async def search(*args, **kwargs):
 
         # Compile set of payloads from the database
         payloads = await conn.all(payload_query)
-        payloads_dump = [payload.dump() for payload in payloads]
+        payloads_dump = dump(inspect(Payload).columns, payloads)
 
         # Calculate elapsed time
         stop = time.time()
@@ -66,16 +73,12 @@ async def search(*args, **kwargs):
         return responses.search(payloads_count, payloads_dump, elapsed)
 
 
-def _get_durations(payloads):
-    services = set()
+def _get_durations(services, payloads):
     service_to_times = {}
     service_to_duration = {}
     all_times = []
 
-    for payload in payloads:
-        services.add(payload['service'])
-
-    for service in services:
+    for key, service in services.items():
         for payload in payloads:
             all_times.append(payload['date'])
             if payload['service'] == service:
@@ -87,14 +90,15 @@ def _get_durations(payloads):
     all_times.sort()
     service_to_duration['total_time'] = str(all_times[-1] - all_times[0])
 
-    for service in services:
-        times = [time for time in service_to_times[service]]
-        times.sort()
-        if 'total_time_in_services' in service_to_duration.keys():
-            service_to_duration['total_time_in_services'] += times[-1] - times[0]
-        else:
-            service_to_duration['total_time_in_services'] = times[-1] - times[0]
-        service_to_duration[service] = str(times[-1] - times[0])
+    for service in services.values():
+        if service in service_to_times.keys():
+            times = [time for time in service_to_times[service]]
+            times.sort()
+            if 'total_time_in_services' in service_to_duration.keys():
+                service_to_duration['total_time_in_services'] += times[-1] - times[0]
+            else:
+                service_to_duration['total_time_in_services'] = times[-1] - times[0]
+            service_to_duration[service] = str(times[-1] - times[0])
     service_to_duration['total_time_in_services'] = str(service_to_duration['total_time_in_services'])
 
     return service_to_duration
@@ -107,31 +111,42 @@ async def get(request_id, *args, **kwargs):
     payload_dump = []
     payload_statuses_dump = []
 
+    status_columns = [c for c in inspect(PayloadStatus).columns if c.name is not 'payload_id']
+    payload_columns = [c for c in inspect(Payload).columns if c.name in [
+        'request_id', 'account', 'inventory_id', 'system_id'
+    ]]
+    statuses_query = db.select([Bundle(PayloadStatus, *status_columns), Bundle(Payload, *payload_columns)])
+
     # initialize connection
     async with db.bind.acquire() as conn:
 
         logger.debug(f"Payloads.get({request_id}, {args}, {kwargs})")
         sort_func = getattr(db, kwargs['sort_dir'])
-        payload_statuses = await conn.all(PayloadStatus.query.where(
-            PayloadStatus.request_id == request_id
-        ).order_by(
-            sort_func(kwargs['sort_by'])
-        ))
+        payload_statuses = await conn.all(
+            statuses_query.select_from(
+                PayloadStatus.join(
+                    Payload, PayloadStatus.payload_id == Payload.id, isouter=True
+                )
+            ).where(
+                Payload.request_id == request_id
+            ).order_by(
+                sort_func(kwargs['sort_by'])
+            )
+        )
 
-    if payload_statuses is None:
+    if payload_statuses == []:
         return responses.not_found()
     else:
-        payload_statuses_dump = [payload_status.dump() for payload_status in payload_statuses]
-        durations = _get_durations(payload_statuses_dump)
+        dump_columns = [*status_columns, *payload_columns, MockColumn('service'), MockColumn('source')]
+        payload_statuses_dump = dump(dump_columns, payload_statuses)
 
-        async with db.bind.acquire() as conn:
-            payload = await conn.all(Payload.query.where(Payload.request_id == request_id))
+        # replace integer values for service and source
+        for status in payload_statuses_dump:
+            for column in ['service', 'source']:
+                if f'{column}_id' in status:
+                    status[column] = cache.get_value(f'{column}s')[status[f'{column}_id']]
+                    del status[f'{column}_id']
 
-        payload_dump = [p.dump() for p in payload]
-        if len(payload_dump) > 0:
-            for payload_status in payload_statuses_dump:
-                for key in ['account', 'inventory_id', 'system_id']:
-                    if key in payload_dump[0]:
-                        payload_status[key] = payload_dump[0][key]
+        durations = _get_durations(cache.get_value('services'), payload_statuses_dump)
 
         return responses.get_with_duration(payload_statuses_dump, durations)
