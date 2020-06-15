@@ -137,7 +137,7 @@ async def get(request_id, *args, **kwargs):
     if payload_statuses == []:
         return responses.not_found()
     else:
-        dump_columns = [*status_columns, *payload_columns, MockColumn('service'), MockColumn('source')]
+        dump_columns = [*status_columns, *payload_columns]
         payload_statuses_dump = dump(dump_columns, payload_statuses)
 
         # replace integer values for service and source
