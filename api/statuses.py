@@ -27,6 +27,9 @@ async def search(*args, **kwargs):
     # initialize connection
     async with db.bind.acquire() as conn:
 
+        # Get the count before we apply the page size and offset
+        statuses_count = await db.func.count(Bundle(PayloadStatus, PayloadStatus.payload_id)).gino.scalar()
+
         # Base query
         status_columns = [c for c in inspect(PayloadStatus).columns if c.name is not 'payload_id']
         statuses_query = db.select([Bundle(PayloadStatus, *status_columns), Bundle(Payload, Payload.request_id)])
@@ -38,11 +41,13 @@ async def search(*args, **kwargs):
             if search_param_key in filters_to_integers:
                 search_param_value = kwargs[search_param_key]
                 values_in_table = cache.get_value(f'{search_param_key}s')
+                if search_param_value not in values_in_table.values():
+                    stop = time.time()
+                    return responses.search(statuses_count, [], stop - start)
                 for key, name in values_in_table.items():
                     if search_param_value == name:
                         statuses_query.append_whereclause(
                             getattr(PayloadStatus, f'{search_param_key}_id') == key)
-
 
         # These filters are used to filter within the database using equality comparisons
         basic_eq_filters = ['status', 'status_msg']
@@ -64,9 +69,6 @@ async def search(*args, **kwargs):
                     statuses_query.append_whereclause(
                         date_group_fn(getattr(PayloadStatus, date_field), the_date)
                     )
-
-        # Get the count before we apply the page size and offset
-        statuses_count = await db.func.count(Bundle(PayloadStatus, PayloadStatus.payload_id)).gino.scalar()
 
         # Then apply page size and offset
         sort_func = getattr(db, kwargs['sort_dir'])
