@@ -1,6 +1,7 @@
 from db import Payload, PayloadStatus, Services, Sources, db
+from utils import dump
 from cache import cache
-from sqlalchemy import inspect
+from sqlalchemy import inspect, cast, TIMESTAMP
 from sqlalchemy.orm import Bundle
 from dateutil import parser
 import responses
@@ -10,10 +11,6 @@ import settings
 import time
 
 logger = logging.getLogger(settings.APP_NAME)
-
-
-def dump(cols, res):
-    return [{k.key: v for k, v in zip(cols, row) if v is not None} for row in res]
 
 
 async def search(*args, **kwargs):
@@ -47,8 +44,8 @@ async def search(*args, **kwargs):
                 if date_field + date_group_str in kwargs:
                     the_date = parser.parse(kwargs[date_field + date_group_str])
                     payload_query.append_whereclause(
-                        date_group_fn(getattr(Payload, date_field), the_date)
-                    )
+                        date_group_fn(
+                            cast(getattr(Payload, date_field), TIMESTAMP), the_date.replace(tzinfo=None)))
 
         # Get the count before we apply the page size and offset
         payloads_count = await conn.scalar(payload_query.alias().count())
