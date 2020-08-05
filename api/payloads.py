@@ -104,6 +104,11 @@ def _get_durations(services, payloads):
 
 async def get(request_id, *args, **kwargs):
 
+    cached_value = cache.get_value(request_id)
+    if cached_value:
+        durations = _get_durations(cache.get_value('services'), cached_value)
+        return responses.get_with_duration(cached_value, durations)
+
     payload = None
     payload_statuses = None
     payload_dump = []
@@ -149,6 +154,8 @@ async def get(request_id, *args, **kwargs):
                     cached_dict = {i['id']: i['name'] for i in cache.get_value(f'{column}s')}
                     status[column] = cached_dict[status[f'{column}_id']]
                     del status[f'{column}_id']
+
+        cache.set_value(request_id, payload_statuses_dump)
 
         durations = _get_durations(cache.get_value('services'), payload_statuses_dump)
 
