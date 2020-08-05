@@ -1,6 +1,6 @@
 from db import Payload, PayloadStatus, Services, Sources, db
 from utils import dump
-from cache import cache
+import cache
 from sqlalchemy import inspect, cast, TIMESTAMP
 from sqlalchemy.orm import Bundle
 from dateutil import parser
@@ -36,10 +36,10 @@ async def search(*args, **kwargs):
             if search_param_key in filters_to_integers:
                 search_param_value = kwargs[search_param_key]
                 values_in_table = cache.get_value(f'{search_param_key}s')
-                if search_param_value not in values_in_table.values():
+                if search_param_value not in [i['name'] for i in values_in_table]:
                     stop = time.time()
                     return responses.search(0, [], stop - start)
-                for key, name in values_in_table.items():
+                for key, name in zip([i['id'] for i in values_in_table], [i['name'] for i in values_in_table]):
                     if search_param_value == name:
                         for query in [statuses_query, statuses_count]:
                             query.append_whereclause(
@@ -94,7 +94,8 @@ async def search(*args, **kwargs):
         for status in statuses_dump:
             for column in ['service', 'source']:
                 if f'{column}_id' in status:
-                    status[column] = cache.get_value(f'{column}s')[status[f'{column}_id']]
+                    cached_dict = {i['id']: i['name'] for i in cache.get_value(f'{column}s')}
+                    status[column] = cached_dict[status[f'{column}_id']]
                     del status[f'{column}_id']
 
         # Calculate elapsed time

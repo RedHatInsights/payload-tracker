@@ -9,13 +9,15 @@ from aiokafka import AIOKafkaConsumer
 from kafkahelpers import ReconnectingClient
 from prometheus_client import start_http_server, Info, Counter, Summary
 from bounded_executor import BoundedExecutor
+from sqlalchemy import inspect
+from utils import dump
 import asyncio
 import connexion
 import socketio
 from connexion.resolver import RestyResolver
 
 from db import init_db, db, Payload, PayloadStatus, Services, Sources
-from cache import cache
+import cache
 import tracker_logging
 
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
@@ -292,17 +294,18 @@ async def process_payload_status(json_msgs):
                 current_column_items = cache.get_value(f'{column}s')
                 if column in data:
                     try:
-                        if not data[column] in current_column_items.values():
+                        if not data[column] in [item['name'] for item in current_column_items]:
                             async with db.transaction():
                                 payload = {'name': data[column]}
                                 to_create = Services(**payload) if column is 'service' else Sources(**payload)
                                 created_value = await to_create.create()
                                 dump = created_value.dump()
-                                cache.set_value(f'{column}s', {dump['id']: dump['name']})
+                                cache.set_value(f'{column}s', {'id': dump['id'], 'name': dump['name']})
                                 logger.info(f'DB Transaction {payload} - {dump}')
                                 sanitized_payload_status[f'{column}_id'] = dump['id']
                         else:
-                            cached_key = [k for k, v in current_column_items.items() if v == data[column]][0]
+                            current_column_dict = {i['id']: i['name'] for i in current_column_items}
+                            cached_key = [k for k, v in current_column_dict.items() if v == data[column]][0]
                             sanitized_payload_status[f'{column}_id'] = cached_key
                     except:
                         logger.error(f'Failed to add {column} with Error: {traceback.format_exc()}')
@@ -372,9 +375,9 @@ def setup_api():
 
 async def update_current_services_and_sources(db):
     res = await db.select([Services]).gino.all()
-    cache.set_value('services', dict(res))
+    cache.set_value('services', dump(inspect(Services).columns, res))
     res = await db.select([Sources]).gino.all()
-    cache.set_value('sources', dict(res))
+    cache.set_value('sources', dump(inspect(Sources).columns, res))
 
 
 def start_prometheus():

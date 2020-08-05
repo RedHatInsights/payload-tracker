@@ -1,6 +1,6 @@
 from db import Payload, PayloadStatus, Services, Sources, db
 from utils import dump
-from cache import cache
+import cache
 from sqlalchemy import inspect, cast, TIMESTAMP
 from sqlalchemy.orm import Bundle
 from dateutil import parser
@@ -76,7 +76,7 @@ def _get_durations(services, payloads):
     all_times = []
 
     if len(payloads) > 0:
-        for key, service in services.items():
+        for key, service in zip([i['id'] for i in services], [i['name'] for i in services]):
             for payload in payloads:
                 all_times.append(payload['date'])
                 if payload['service'] == service:
@@ -88,7 +88,7 @@ def _get_durations(services, payloads):
         all_times.sort()
         service_to_duration['total_time'] = str(all_times[-1] - all_times[0])
 
-        for service in services.values():
+        for service in [i['name'] for i in services]:
             if service in service_to_times.keys():
                 times = [time for time in service_to_times[service]]
                 times.sort()
@@ -146,7 +146,8 @@ async def get(request_id, *args, **kwargs):
         for status in payload_statuses_dump:
             for column in ['service', 'source']:
                 if f'{column}_id' in status:
-                    status[column] = cache.get_value(f'{column}s')[status[f'{column}_id']]
+                    cached_dict = {i['id']: i['name'] for i in cache.get_value(f'{column}s')}
+                    status[column] = cached_dict[status[f'{column}_id']]
                     del status[f'{column}_id']
 
         durations = _get_durations(cache.get_value('services'), payload_statuses_dump)
