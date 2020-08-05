@@ -345,7 +345,7 @@ async def process_payload_status(json_msgs):
                             dump[column] = data[column]
                             del dump[f'{column}_id']
                     await sio.emit('payload', dump)
-                    cache.set_value(data['request_id'], {**dump, **sanitized_payload})
+                    cache.set_value(data['request_id'], {**dump, **sanitized_payload}, ttl=3600)
             except:
                 logger.error(f"Failed to parse message with Error: {traceback.format_exc()}")
                 continue

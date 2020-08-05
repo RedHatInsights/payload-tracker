@@ -43,7 +43,7 @@ def get_value(key):
     return _revert_datetime(json.loads(value)) if value else None
 
 
-def set_value(key, value):
+def set_value(key, value, ttl=None):
     hash_key = hashlib.md5(str.encode(key)).hexdigest()
     cached_value = get_value(key)
     if cached_value:
@@ -52,7 +52,7 @@ def set_value(key, value):
             new_value = json.dumps(to_add, default=_convert_datetime)
         except:
             logger.error(traceback.format_exc())
-        redis_client.set(hash_key, new_value)
+        redis_client.set(hash_key, new_value, ex=ttl)
     else:
         try:
             if type(value) is list:
@@ -61,4 +61,4 @@ def set_value(key, value):
                 value = json.dumps([value], default=_convert_datetime)
         except:
             logger.error(traceback.format_exc())
-        redis_client.set(hash_key, value)
+        redis_client.set(hash_key, value, ex=ttl)
