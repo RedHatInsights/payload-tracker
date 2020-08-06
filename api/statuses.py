@@ -1,4 +1,4 @@
-from db import Payload, PayloadStatus, Services, Sources, db
+from db import Payload, PayloadStatus, db, tables
 from utils import dump
 from cache import cache
 from sqlalchemy import inspect, cast, TIMESTAMP
@@ -30,12 +30,12 @@ async def search(*args, **kwargs):
         statuses_count = db.select([db.func.count(Bundle(PayloadStatus, PayloadStatus.payload_id))])
 
         # convert string-base queries to integer equivalents
-        filters_to_integers = ['service', 'source']
+        filters_to_integers = {'service': 'services', 'source': 'sources', 'status': 'statuses'}
 
         for search_param_key in kwargs:
-            if search_param_key in filters_to_integers:
+            if search_param_key in filters_to_integers.keys():
                 search_param_value = kwargs[search_param_key]
-                values_in_table = cache.get_value(f'{search_param_key}s')
+                values_in_table = cache.get_value(tables[filters_to_integers[search_param_value]])
                 if search_param_value not in values_in_table.values():
                     stop = time.time()
                     return responses.search(0, [], stop - start)
@@ -46,7 +46,7 @@ async def search(*args, **kwargs):
                                 getattr(PayloadStatus, f'{search_param_key}_id') == key)
 
         # These filters are used to filter within the database using equality comparisons
-        basic_eq_filters = ['status', 'status_msg']
+        basic_eq_filters = ['status_msg']
 
         # Compose where clauses for any of the basic equality filters in the kwargs
         for search_param_key in kwargs:
@@ -73,7 +73,7 @@ async def search(*args, **kwargs):
         statuses_query = statuses_query.limit(kwargs['page_size']).offset(
                 kwargs['page'] * kwargs['page_size'])
 
-        if kwargs['sort_by'] in ['source', 'service']:
+        if kwargs['sort_by'] in ['source', 'service', 'status']:
             statuses_query = statuses_query.order_by(sort_func(f'{kwargs["sort_by"]}_id'))
         else:
             statuses_query = statuses_query.order_by(sort_func(kwargs['sort_by']))
@@ -92,10 +92,10 @@ async def search(*args, **kwargs):
 
         # replace integer values for service and source
         for status in statuses_dump:
-            for column in ['service', 'source']:
-                if f'{column}_id' in status:
-                    status[column] = cache.get_value(f'{column}s')[status[f'{column}_id']]
-                    del status[f'{column}_id']
+            for column_name, table_name in zip(['service', 'source', 'status'], ['services', 'sources', 'statuses']):
+                if f'{column_name}_id' in status:
+                    status[column_name] = cache.get_value(table_name)[status[f'{column_name}_id']]
+                    del status[f'{column_name}_id']
 
         # Calculate elapsed time
         stop = time.time()

@@ -36,7 +36,7 @@ class PayloadStatus(db.Model):
     payload_id = db.Column(db.Integer, db.ForeignKey('payloads.id', ondelete='CASCADE'))
     service_id = db.Column(db.Integer, db.ForeignKey('services.id'))
     source_id = db.Column(db.Integer, db.ForeignKey('sources.id'))
-    status = db.Column(db.Unicode)
+    status_id = db.Column(db.Unicode)
     status_msg = db.Column(db.Unicode)
     date = db.Column(db.DateTime(timezone=True), server_default="timezone('utc'::text, now())")
     created_at = db.Column(db.DateTime(timezone=True), server_default="timezone('utc'::text, now())")
@@ -63,3 +63,16 @@ class Services(db.Model):
 
     def dump(self):
         return {k: v for k, v in self.__values__.items() if v is not None}
+
+
+class Statuses(db.Model):
+    __tablename__ = 'statuses'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.Unicode, unique=True)
+
+    def dump(self):
+        return {k: v for k, v in self.__values__.items() if v is not None}
+
+
+tables = {table.__tablename__: table for table in [Payload, PayloadStatus, Services, Sources, Statuses]}

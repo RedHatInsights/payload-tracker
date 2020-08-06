@@ -14,7 +14,7 @@ import connexion
 import socketio
 from connexion.resolver import RestyResolver
 
-from db import init_db, db, Payload, PayloadStatus, Services, Sources
+from db import init_db, db, Payload, PayloadStatus, tables
 from cache import cache
 import tracker_logging
 
@@ -248,7 +248,7 @@ async def process_payload_status(json_msgs):
                 if key in data:
                     sanitized_payload[key] = data[key]
 
-            sanitized_payload_status = {'status': data['status']}
+            sanitized_payload_status = {}
 
             # define method for retrieving values
             async def get_payload():
@@ -288,24 +288,24 @@ async def process_payload_status(json_msgs):
                 continue
 
             # check if service/source is not in table
-            for column in ['service', 'source']:
-                current_column_items = cache.get_value(f'{column}s')
-                if column in data:
+            for column_name, table_name in zip(['service', 'source', 'status'], ['services', 'sources', 'statuses']):
+                current_column_items = cache.get_value(table_name)
+                if column_name in data:
                     try:
-                        if not data[column] in current_column_items.values():
+                        if not data[column_name] in current_column_items.values():
                             async with db.transaction():
-                                payload = {'name': data[column]}
-                                to_create = Services(**payload) if column is 'service' else Sources(**payload)
+                                payload = {'name': data[column_name]}
+                                to_create = tables[table_name](**payload)
                                 created_value = await to_create.create()
                                 dump = created_value.dump()
-                                cache.set_value(f'{column}s', {dump['id']: dump['name']})
+                                cache.set_value(table_name, {dump['id']: dump['name']})
                                 logger.info(f'DB Transaction {payload} - {dump}')
-                                sanitized_payload_status[f'{column}_id'] = dump['id']
+                                sanitized_payload_status[f'{column_name}_id'] = dump['id']
                         else:
-                            cached_key = [k for k, v in current_column_items.items() if v == data[column]][0]
-                            sanitized_payload_status[f'{column}_id'] = cached_key
+                            cached_key = [k for k, v in current_column_items.items() if v == data[column_name]][0]
+                            sanitized_payload_status[f'{column_name}_id'] = cached_key
                     except:
-                        logger.error(f'Failed to add {column} with Error: {traceback.format_exc()}')
+                        logger.error(f'Failed to add {column_name} with Error: {traceback.format_exc()}')
                         continue
 
             if 'status_msg' in data:
@@ -321,7 +321,7 @@ async def process_payload_status(json_msgs):
             # Increment Prometheus Metrics
             check_payload_status_metrics(sanitized_payload_status['payload_id'],
                                          data['service'],
-                                         sanitized_payload_status['status'],
+                                         data['status'],
                                          sanitized_payload_status['date'])
 
             logger.info(f"Sanitized Payload Status for DB {sanitized_payload_status}")
@@ -371,10 +371,9 @@ def setup_api():
 
 
 async def update_current_services_and_sources(db):
-    res = await db.select([Services]).gino.all()
-    cache.set_value('services', dict(res))
-    res = await db.select([Sources]).gino.all()
-    cache.set_value('sources', dict(res))
+    for table in ['services', 'sources', 'statuses']:
+        res = await db.select([tables[table]]).gino.all()
+        cache.set_value(table, dict(res))
 
 
 def start_prometheus():

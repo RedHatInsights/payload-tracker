@@ -27,4 +27,4 @@ class Cache:
             yield self.cache[key]
 
 
-cache = Cache({'services': {}, 'sources': {}})
+cache = Cache({'services': {}, 'sources': {}, 'statuses': {}})

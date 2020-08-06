@@ -1,4 +1,4 @@
-from db import Payload, PayloadStatus, Services, Sources, db
+from db import Payload, PayloadStatus, db
 from utils import dump
 from cache import cache
 from sqlalchemy import inspect, cast, TIMESTAMP
@@ -129,7 +129,7 @@ async def get(request_id, *args, **kwargs):
             Payload.request_id == request_id
         )
 
-        if kwargs['sort_by'] in ['source', 'service']:
+        if kwargs['sort_by'] in ['source', 'service', 'status']:
             statuses_query = statuses_query.order_by(sort_func(f'{kwargs["sort_by"]}_id'))
         else:
             statuses_query = statuses_query.order_by(sort_func(kwargs['sort_by']))
@@ -144,10 +144,10 @@ async def get(request_id, *args, **kwargs):
 
         # replace integer values for service and source
         for status in payload_statuses_dump:
-            for column in ['service', 'source']:
-                if f'{column}_id' in status:
-                    status[column] = cache.get_value(f'{column}s')[status[f'{column}_id']]
-                    del status[f'{column}_id']
+            for column_name, table_name in zip(['service', 'source', 'status'], ['services', 'sources', 'statuses']):
+                if f'{column_name}_id' in status:
+                    status[column_name] = cache.get_value(table_name)[status[f'{column_name}_id']]
+                    del status[f'{column_name}_id']
 
         durations = _get_durations(cache.get_value('services'), payload_statuses_dump)
 

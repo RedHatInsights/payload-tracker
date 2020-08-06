@@ -12,7 +12,7 @@ system_id = str(uuid.uuid1())
 payload = {
     'service': 'this_service_is_new',
     'request_id': request_id,
-    'status': 'received',
+    'status': 'this_status_is_new',
     'inventory_id': inventory_id,
     'system_id': system_id,
     'source': 'this_source_is_new'
