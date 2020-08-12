@@ -1,4 +1,4 @@
-from db import Payload, PayloadStatus, db, tables
+from db import Payload, PayloadStatus, db
 from utils import dump
 from cache import cache
 from sqlalchemy import inspect, cast, TIMESTAMP
@@ -35,7 +35,7 @@ async def search(*args, **kwargs):
         for search_param_key in kwargs:
             if search_param_key in filters_to_integers.keys():
                 search_param_value = kwargs[search_param_key]
-                values_in_table = cache.get_value(tables[filters_to_integers[search_param_value]])
+                values_in_table = cache.get_value(filters_to_integers[search_param_key])
                 if search_param_value not in values_in_table.values():
                     stop = time.time()
                     return responses.search(0, [], stop - start)
