@@ -337,7 +337,7 @@ async def process_payload_status(json_msgs):
                     # change id values back to strings for sockets
                     dump['request_id'] = data['request_id']
                     del dump['payload_id']
-                    for column in ['service', 'source']:
+                    for column in ['service', 'source', 'status']:
                         if column in data:
                             dump[column] = data[column]
                             del dump[f'{column}_id']
