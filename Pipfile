@@ -11,12 +11,13 @@ kafkahelpers = "*"
 sqlalchemy = "*"
 werkzeug = "*"
 connexion = {extras = ["swagger-ui"],version = "*"}
-"psycopg2-binary" = "*"
 gino = "*"
 alembic = "*"
 aiohttp = "*"
 aiohttp-jinja2 = "*"
 python-socketio = "*"
+psycopg2-binary = "*"
+asyncpg = "*"
 
 [dev-packages]
 pytest = "*"
