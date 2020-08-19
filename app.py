@@ -2,6 +2,7 @@ import os
 from dateutil import parser
 from dateutil.utils import default_tzinfo
 from dateutil.tz import tzutc
+from datetime import timedelta
 import traceback
 import json
 
@@ -80,6 +81,64 @@ CONSUMER = ReconnectingClient(kafka_consumer, "consumer")
 # Setup sockets
 sio = socketio.AsyncServer(async_mode='aiohttp')
 
+
+# collects duration data and emits via sio as payloads are processed
+# accumulated_durations = {
+#   request_id: {
+#     service: [
+#       datetime(), datetime(), ...
+#     ]
+#   }
+# }
+accumulated_durations = {}
+
+async def accumulate_payload_durations(payload):
+    def _calculate_total_time(p_id):
+        times = []
+        for service in accumulated_durations[p_id]:
+            times.extend([time for time in accumulated_durations[p_id][service]])
+        times.sort()
+        return times[-1] - times[0]
+
+    def _calculate_indiv_service_time(p_id, p_service):
+        times = [time for time in accumulated_durations[p_id][p_service]]
+        times.sort()
+        return times[-1] - times[0]
+
+    def _calculate_total_service_time(p_id):
+        total = timedelta(0)
+        for service in accumulated_durations[p_id]:
+            total += _calculate_indiv_service_time(p_id, service)
+        return total
+
+    async def _emit(request_id, key, data):
+        await sio.emit('duration', {'id': request_id, 'key': key, 'data': data })
+
+    logger.debug(f'Preparing for duration emission with payload: {payload}')
+
+    # scrub payload for tokens
+    p_id = payload['request_id']
+    p_status = payload['status']
+    p_service = payload['service']
+    p_date = payload['date']
+
+    # append or remove payload from dictionary
+    if p_id in accumulated_durations:
+        if p_service in accumulated_durations[p_id]:
+            accumulated_durations[p_id][p_service].append(p_date)
+        else:
+            accumulated_durations[p_id][p_service] = [p_date]
+    else:
+        accumulated_durations[p_id] = { p_service: [p_date] }
+
+    await _emit(p_id, 'total_time_in_services', str(_calculate_total_service_time(p_id)))
+    await _emit(p_id, 'total_time', str(_calculate_total_time(p_id)))
+    await _emit(p_id, p_service, str(_calculate_indiv_service_time(p_id, p_service)))
+
+    if p_status in ['success', 'error'] and p_service in ['insights-advisor-service']:
+        del accumulated_durations[p_id]
+
+
 # keep track of payloads and their statuses for prometheus metric counters
 # payload_statuses  = {
 #    '123456': {
@@ -96,7 +155,7 @@ payload_statuses = {}
 payload_status_total_times = {}
 
 # payload_status_service_total_times = {
-#    '123456': { 
+#    '123456': {
 #                  {'ingress': {'start':12312412, 'stop': 12312123},
 #                  {'pup': {'start':12345}
 #               }
@@ -317,6 +376,9 @@ async def process_payload_status(json_msgs):
                 except:
                     the_error = traceback.format_exc()
                     logger.error(f"Error parsing date: {the_error}")
+
+            # Add payload to durations
+            await accumulate_payload_durations({**data, 'date': sanitized_payload_status['date']})
 
             # Increment Prometheus Metrics
             check_payload_status_metrics(sanitized_payload_status['payload_id'],
