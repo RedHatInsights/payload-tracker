@@ -114,7 +114,7 @@ async def accumulate_payload_durations(payload):
     async def _emit(request_id, key, data):
         await sio.emit('duration', {'id': request_id, 'key': key, 'data': data })
 
-    logger.info(f'Preparing for duration emission with payload: {payload}')
+    logger.debug(f'Preparing for duration emission with payload: {payload}')
 
     # scrub payload for tokens
     p_id = payload['request_id']
