@@ -1,4 +1,5 @@
 import os
+import time
 from dateutil import parser
 from dateutil.utils import default_tzinfo
 from dateutil.tz import tzutc
@@ -85,29 +86,47 @@ sio = socketio.AsyncServer(async_mode='aiohttp')
 # collects duration data and emits via sio as payloads are processed
 # accumulated_durations = {
 #   request_id: {
-#     service: [
-#       datetime(), datetime(), ...
-#     ]
+#     recorded: time.time(),
+#     services: {
+#       service: [
+#         datetime(), datetime(), ...
+#       ]
+#     }
 #   }
 # }
 accumulated_durations = {}
 
+async def clean_durations():
+    threshold = timedelta(os.environ.get('DURATIONS_DELETION_THRESHOLD', 60))
+    interval = timdelta(os.environ.get('DURATIONS_DELETION_INTERVAL', 20))
+    while True:
+        await asyncio.sleep(interval, loop=loop)
+        ids_to_delete = []
+        for request_id, payload in accumulated_durations.items():
+            now = time.time()
+            if 'recorded' in payload and timedelta(now - payload['recorded']) > threshold:
+                ids_to_delete.append(request_id)
+        for request_id in ids_to_delete:
+            logger.debug(f'Removing record for payload with request_id: {request_id}')
+            del accumulated_durations[request_id]
+
+
 async def accumulate_payload_durations(payload):
     def _calculate_total_time(p_id):
         times = []
-        for service in accumulated_durations[p_id]:
-            times.extend([time for time in accumulated_durations[p_id][service]])
+        for service in accumulated_durations[p_id]['services']:
+            times.extend([time for time in accumulated_durations[p_id]['services'][service]])
         times.sort()
         return times[-1] - times[0]
 
     def _calculate_indiv_service_time(p_id, p_service):
-        times = [time for time in accumulated_durations[p_id][p_service]]
+        times = [time for time in accumulated_durations[p_id]['services'][p_service]]
         times.sort()
         return times[-1] - times[0]
 
     def _calculate_total_service_time(p_id):
         total = timedelta(0)
-        for service in accumulated_durations[p_id]:
+        for service in accumulated_durations[p_id]['services']:
             total += _calculate_indiv_service_time(p_id, service)
         return total
 
@@ -124,19 +143,18 @@ async def accumulate_payload_durations(payload):
 
     # append or remove payload from dictionary
     if p_id in accumulated_durations:
-        if p_service in accumulated_durations[p_id]:
-            accumulated_durations[p_id][p_service].append(p_date)
+        if p_service in accumulated_durations[p_id]['services']:
+            accumulated_durations[p_id]['services'][p_service].append(p_date)
         else:
-            accumulated_durations[p_id][p_service] = [p_date]
+            accumulated_durations[p_id]['services'][p_service] = [p_date]
     else:
-        accumulated_durations[p_id] = { p_service: [p_date] }
+        accumulated_durations[p_id] = {'services': {p_service: [p_date]}}
+
+    accumulated_durations[p_id]['recorded'] = time.time()
 
     await _emit(p_id, 'total_time_in_services', str(_calculate_total_service_time(p_id)))
     await _emit(p_id, 'total_time', str(_calculate_total_time(p_id)))
     await _emit(p_id, p_service, str(_calculate_indiv_service_time(p_id, p_service)))
-
-    if p_status in ['success', 'error'] and p_service in ['insights-advisor-service']:
-        del accumulated_durations[p_id]
 
 
 # keep track of payloads and their statuses for prometheus metric counters
@@ -479,6 +497,9 @@ if __name__ == "__main__":
         # setup sockets
         logger.info("Setting up sockets")
         sio.attach(app.app)
+
+        # clean durations
+        loop.create_task(clean_durations())
 
         # loops
         logger.info("Running...")
