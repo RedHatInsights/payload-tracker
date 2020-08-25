@@ -98,7 +98,7 @@ accumulated_durations = {}
 
 async def clean_durations():
     threshold = timedelta(os.environ.get('DURATIONS_DELETION_THRESHOLD', 60))
-    interval = timdelta(os.environ.get('DURATIONS_DELETION_INTERVAL', 20))
+    interval = int(os.environ.get('DURATIONS_DELETION_INTERVAL', 20))
     while True:
         await asyncio.sleep(interval, loop=loop)
         ids_to_delete = []
@@ -304,6 +304,10 @@ async def process_payload_status(json_msgs):
 
         if data:
             logger.info("Payload message processed as JSON.")
+
+            # ensure data is of type string
+            for key in data:
+                data[key] = str(data[key])
 
             # Check for missing keys
             expected_keys = ["service", "request_id", "status", "date"]
