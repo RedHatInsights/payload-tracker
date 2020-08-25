@@ -1,4 +1,4 @@
-from db import Payload, PayloadStatus, db
+from db import Payload, PayloadStatus, PartitionedStatus, db
 from utils import dump
 from cache import cache
 from sqlalchemy import inspect, cast, TIMESTAMP
@@ -21,13 +21,15 @@ async def search(*args, **kwargs):
     # Calculate elapsed time
     start = time.time()
 
+    status_table = PayloadStatus if kwargs['partition'] is False else PartitionedStatus
+
     # initialize connection
     async with db.bind.acquire() as conn:
 
         # Base queries
-        status_columns = [c for c in inspect(PayloadStatus).columns if c.name != 'payload_id']
-        statuses_query = db.select([Bundle(PayloadStatus, *status_columns), Bundle(Payload, Payload.request_id)])
-        statuses_count = db.select([db.func.count(Bundle(PayloadStatus, PayloadStatus.payload_id))])
+        status_columns = [c for c in inspect(status_table).columns if c.name != 'payload_id']
+        statuses_query = db.select([Bundle(status_table, *status_columns), Bundle(Payload, Payload.request_id)])
+        statuses_count = db.select([db.func.count(Bundle(status_table, status_table.payload_id))])
 
         # convert string-base queries to integer equivalents
         filters_to_integers = {'service': 'services', 'source': 'sources', 'status': 'statuses'}
@@ -43,7 +45,7 @@ async def search(*args, **kwargs):
                     if search_param_value == name:
                         for query in [statuses_query, statuses_count]:
                             query.append_whereclause(
-                                getattr(PayloadStatus, f'{search_param_key}_id') == key)
+                                getattr(status_table, f'{search_param_key}_id') == key)
 
         # These filters are used to filter within the database using equality comparisons
         basic_eq_filters = ['status_msg']
@@ -54,7 +56,7 @@ async def search(*args, **kwargs):
                 search_param_value = kwargs[search_param_key]
                 for query in [statuses_query, statuses_count]:
                     query.append_whereclause(
-                        getattr(PayloadStatus, search_param_key) == search_param_value)
+                        getattr(status_table, search_param_key) == search_param_value)
 
         # Perform comparisons on date fields 'date', and 'created_at'
         date_group_fns = {'_lt': operator.lt, '_lte': operator.le,
@@ -66,7 +68,7 @@ async def search(*args, **kwargs):
                     for query in [statuses_query, statuses_count]:
                         query.append_whereclause(
                             date_group_fn(
-                                cast(getattr(PayloadStatus, date_field), TIMESTAMP), the_date.replace(tzinfo=None)))
+                                cast(getattr(status_table, date_field), TIMESTAMP), the_date.replace(tzinfo=None)))
 
         # Then apply page size and offset
         sort_func = getattr(db, kwargs['sort_dir'])
@@ -83,8 +85,8 @@ async def search(*args, **kwargs):
 
         # Compile set of statuses from the database
         statuses = await conn.all(statuses_query.select_from(
-            PayloadStatus.join(
-                Payload, PayloadStatus.payload_id == Payload.id, isouter=True
+            status_table.join(
+                Payload, status_table.payload_id == Payload.id, isouter=True
             )
         ))
         dump_columns = [*status_columns, Payload.request_id]
