@@ -37,7 +37,7 @@ UPLOAD_TIME_ELAPSED = Summary('payload_tracker_upload_time_elapsed',
                               'Tracks the total elapsed upload time')
 UPLOAD_TIME_ELAPSED_BY_SERVICE = Summary('payload_tracker_upload_time_by_service_elapsed',
                                          'Tracks the elapsed upload time by service',
-                                         ['service'])
+                                         ['service_name'])
 
 PAYLOAD_TRACKER_SERVICE_VERSION = Info(
     'payload_tracker_service_version',
@@ -245,7 +245,7 @@ def check_payload_status_metrics(request_id, service, status, service_date=None)
             start = payload_status_service_total_times[request_id]['ingress']['start']
             stop = service_date
             elapsed = (stop - start).total_seconds()
-            UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service=service).observe(elapsed)
+            UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service).observe(elapsed)
             del payload_status_service_total_times[request_id]['ingress']
         # Determine pup
         if service == 'advisor-pup' and status == 'processing':
@@ -255,7 +255,7 @@ def check_payload_status_metrics(request_id, service, status, service_date=None)
             start = payload_status_service_total_times[request_id]['advisor-pup']['start']
             stop = service_date
             elapsed = (stop - start).total_seconds()
-            UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service=service).observe(elapsed)
+            UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service).observe(elapsed)
             del payload_status_service_total_times[request_id]['advisor-pup']
         # Determine advisor
         if service == 'insights-advisor-service' and status == 'received':
@@ -265,7 +265,7 @@ def check_payload_status_metrics(request_id, service, status, service_date=None)
             start = payload_status_service_total_times[request_id]['insights-advisor-service']['start']
             stop = service_date
             elapsed = (stop - start).total_seconds()
-            UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service=service).observe(elapsed)
+            UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service).observe(elapsed)
 
         # Clean up any errors
         if service == 'ingress' and status == 'error':
