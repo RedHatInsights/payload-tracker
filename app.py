@@ -32,7 +32,7 @@ DISABLE_PROMETHEUS = True if os.environ.get('DISABLE_PROMETHEUS') == "True" else
 PROMETHEUS_PORT = os.environ.get('PROMETHEUS_PORT', 8000)
 SERVICE_STATUS_COUNTER = Counter('payload_tracker_service_status_counter',
                                  'Counters for services and their various statuses',
-                                 ['service', 'status'])
+                                 ['service_name', 'status'])
 UPLOAD_TIME_ELAPSED = Summary('payload_tracker_upload_time_elapsed',
                               'Tracks the total elapsed upload time')
 UPLOAD_TIME_ELAPSED_BY_SERVICE = Summary('payload_tracker_upload_time_by_service_elapsed',
@@ -196,7 +196,7 @@ def check_payload_status_metrics(request_id, service, status, service_date=None)
 
     if unique_payload_service_and_status:
         payload_statuses[request_id][service].append(status)
-        SERVICE_STATUS_COUNTER.labels(service=service, status=status).inc()
+        SERVICE_STATUS_COUNTER.labels(service_name=service, status=status).inc()
 
     # Clean up anything we don't still need to track in memory
     if status in ['error', 'success', 'announced']:
