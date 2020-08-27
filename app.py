@@ -180,6 +180,16 @@ payload_status_total_times = {}
 # }
 payload_status_service_total_times = {}
 
+
+##### TODO: clean these properly
+async def clean_statuses():
+    interval = int(os.environ.get('STATUS_DELETION_INTERVAL', 60))
+    while True:
+        await asyncio.sleep(interval, loop=loop)
+        payload_statuses.clear()
+        payload_status_total_times.clear()
+        payload_status_service_total_times.clear()
+
 def check_payload_status_metrics(request_id, service, status, service_date=None):
 
     # Determine unique payload statuses (uniquely increment service status counts)
@@ -206,7 +216,7 @@ def check_payload_status_metrics(request_id, service, status, service_date=None)
             else:
                 del payload_statuses[request_id][service]
         except:
-            logger.info(f"Could not delete payload status cache for "
+            logger.debug(f"Could not delete payload status cache for "
                         f"{request_id} - {service} - {status}")
 
     # Determine TOTAL Upload elapsed times (ingress all the way to advisor)
@@ -228,7 +238,7 @@ def check_payload_status_metrics(request_id, service, status, service_date=None)
         if service == 'insights-advisor-service' and status in ['success', 'error']:
             del payload_status_total_times[request_id]
     except:
-        logger.info(f"Could not update payload status total upload time for "
+        logger.debug(f"Could not update payload status total upload time for "
                     f"{request_id} - {service} - {status}")
 
 
@@ -276,24 +286,24 @@ def check_payload_status_metrics(request_id, service, status, service_date=None)
             del payload_status_service_total_times[request_id]
 
     except:
-        logger.info(f"Could not update payload status service elapsed time for "
+        logger.debug(f"Could not update payload status service elapsed time for "
                     f"{request_id} - {service} - {status}")
 
 
 @sio.event
 async def connect(sid, environ):
-    logger.info('Socket connected: %s', sid)
+    logger.debug('Socket connected: %s', sid)
 
 
 @sio.event
 async def disconnect(sid):
-    logger.info('Socket disconnected: %s', sid)
+    logger.debug('Socket disconnected: %s', sid)
 
 
 async def process_payload_status(json_msgs):
-    logger.info(f"Processing messages: {json_msgs}")
+    logger.debug(f"Processing messages: {json_msgs}")
     for msg in json_msgs:
-        logger.info(f"Processing Payload Message {msg.value}")
+        logger.debug(f"Processing Payload Message {msg.value}")
         data = None
 
         try:
@@ -303,7 +313,7 @@ async def process_payload_status(json_msgs):
             continue
 
         if data:
-            logger.info("Payload message processed as JSON.")
+            logger.debug("Payload message processed as JSON.")
 
             # ensure data is of type string
             for key in data:
@@ -313,7 +323,7 @@ async def process_payload_status(json_msgs):
             expected_keys = ["service", "request_id", "status", "date"]
             missing_keys = [key for key in expected_keys if key not in data]
             if missing_keys:
-                logger.info(f"Payload {data} missing keys {missing_keys}. Expected {expected_keys}")
+                logger.debug(f"Payload {data} missing keys {missing_keys}. Expected {expected_keys}")
                 continue
 
             if data['request_id'] == '-1':
@@ -326,7 +336,7 @@ async def process_payload_status(json_msgs):
             if 'source' in data:
                 data['source'] = data['source'].lower()
 
-            logger.info("Payload message has expected keys. Begin sanitizing")
+            logger.debug("Payload message has expected keys. Begin sanitizing")
             # sanitize the payload status
             sanitized_payload = {'request_id': data['request_id']}
             for key in ['inventory_id', 'system_id', 'account']:
@@ -357,7 +367,7 @@ async def process_payload_status(json_msgs):
                             created_payload = await payload_to_create.create()
                             dump = created_payload.dump()
                             sanitized_payload_status['payload_id'] = dump['id']
-                            logger.info(f"DB Transaction {created_payload} - {dump}")
+                            logger.debug(f"DB Transaction {created_payload} - {dump}")
                     except:
                         logger.error(f'Failed to insert Payload into Table -- will retry update')
                         payload_dump = await get_payload()
@@ -384,7 +394,7 @@ async def process_payload_status(json_msgs):
                                 created_value = await to_create.create()
                                 dump = created_value.dump()
                                 cache.set_value(table_name, {dump['id']: dump['name']})
-                                logger.info(f'DB Transaction {payload} - {dump}')
+                                logger.debug(f'DB Transaction {payload} - {dump}')
                                 sanitized_payload_status[f'{column_name}_id'] = dump['id']
                         else:
                             cached_key = [k for k, v in current_column_items.items() if v == data[column_name]][0]
@@ -419,7 +429,7 @@ async def process_payload_status(json_msgs):
                     payload_status_to_create = PayloadStatus(**sanitized_payload_status)
                     created_payload_status = await payload_status_to_create.create()
                     dump = created_payload_status.dump()
-                    logger.info(f"DB Transaction {created_payload_status} - {dump}")
+                    logger.debug(f"DB Transaction {created_payload_status} - {dump}")
                     dump['date'] = str(dump['date'])
                     dump['created_at'] = str(dump['created_at'])
                     # change id values back to strings for sockets
@@ -440,7 +450,7 @@ async def process_payload_status(json_msgs):
 async def consume(client):
     data = await client.getmany()
     for tp, msgs in data.items():
-        logger.info("Received messages: %s", msgs)
+        logger.debug("Received messages: %s", msgs)
         loop.create_task(process_payload_status(msgs))
     await asyncio.sleep(0.1)
 
@@ -506,8 +516,9 @@ if __name__ == "__main__":
         logger.info("Setting up sockets")
         sio.attach(app.app)
 
-        # clean durations
+        # clean durations and statuses
         loop.create_task(clean_durations())
+        loop.create_task(clean_statuses())
 
         # loops
         logger.info("Running...")
