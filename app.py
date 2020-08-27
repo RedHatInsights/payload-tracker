@@ -97,7 +97,7 @@ sio = socketio.AsyncServer(async_mode='aiohttp')
 accumulated_durations = {}
 
 async def clean_durations():
-    threshold = timedelta(os.environ.get('DURATIONS_DELETION_THRESHOLD', 60))
+    threshold = timedelta(int(os.environ.get('DURATIONS_DELETION_THRESHOLD', 60)))
     interval = int(os.environ.get('DURATIONS_DELETION_INTERVAL', 20))
     while True:
         await asyncio.sleep(interval, loop=loop)
