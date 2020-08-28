@@ -81,7 +81,16 @@ kafka_consumer = AIOKafkaConsumer(
 CONSUMER = ReconnectingClient(kafka_consumer, "consumer")
 
 # Setup sockets
-sio = socketio.AsyncServer(async_mode='aiohttp')
+if ENABLE_SOCKETS:
+    sio = socketio.AsyncServer(async_mode='aiohttp')
+
+    @sio.event
+    async def connect(sid, environ):
+        logger.debug('Socket connected: %s', sid)
+
+    @sio.event
+    async def disconnect(sid):
+        logger.debug('Socket disconnected: %s', sid)
 
 
 # collects duration data and emits via sio as payloads are processed
@@ -132,7 +141,8 @@ async def accumulate_payload_durations(payload):
         return total
 
     async def _emit(request_id, key, data):
-        await sio.emit('duration', {'id': request_id, 'key': key, 'data': data })
+        if ENABLE_SOCKETS:
+            await sio.emit('duration', {'id': request_id, 'key': key, 'data': data })
 
     logger.debug(f'Preparing for duration emission with payload: {payload}')
 
@@ -291,16 +301,6 @@ def check_payload_status_metrics(request_id, service, status, service_date=None)
                     f"{request_id} - {service} - {status}")
 
 
-@sio.event
-async def connect(sid, environ):
-    logger.debug('Socket connected: %s', sid)
-
-
-@sio.event
-async def disconnect(sid):
-    logger.debug('Socket disconnected: %s', sid)
-
-
 async def process_payload_status(json_msgs):
     logger.debug(f"Processing messages: {json_msgs}")
     for msg in json_msgs:
@@ -440,7 +440,8 @@ async def process_payload_status(json_msgs):
                         if column in data:
                             dump[column] = data[column]
                             del dump[f'{column}_id']
-                    await sio.emit('payload', dump)
+                    if ENABLE_SOCKETS:
+                        await sio.emit('payload', dump)
             except:
                 logger.error(f"Failed to parse message with Error: {traceback.format_exc()}")
                 continue
