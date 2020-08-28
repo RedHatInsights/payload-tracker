@@ -163,9 +163,10 @@ async def accumulate_payload_durations(payload):
 
     accumulated_durations[p_id]['recorded'] = time.time()
 
-    await _emit(p_id, 'total_time_in_services', str(_calculate_total_service_time(p_id)))
-    await _emit(p_id, 'total_time', str(_calculate_total_time(p_id)))
-    await _emit(p_id, p_service, str(_calculate_indiv_service_time(p_id, p_service)))
+    if ENABLE_SOCKETS:
+        await _emit(p_id, 'total_time_in_services', str(_calculate_total_service_time(p_id)))
+        await _emit(p_id, 'total_time', str(_calculate_total_time(p_id)))
+        await _emit(p_id, p_service, str(_calculate_indiv_service_time(p_id, p_service)))
 
 
 # keep track of payloads and their statuses for prometheus metric counters
@@ -415,13 +416,15 @@ async def process_payload_status(json_msgs):
                     logger.error(f"Error parsing date: {the_error}")
 
             # Add payload to durations
-            await accumulate_payload_durations({**data, 'date': sanitized_payload_status['date']})
+            if ENABLE_SOCKETS:
+                await accumulate_payload_durations({**data, 'date': sanitized_payload_status['date']})
 
             # Increment Prometheus Metrics
-            check_payload_status_metrics(sanitized_payload_status['payload_id'],
-                                         data['service'],
-                                         data['status'],
-                                         sanitized_payload_status['date'])
+            if not DISABLE_PROMETHEUS:
+                check_payload_status_metrics(sanitized_payload_status['payload_id'],
+                                             data['service'],
+                                             data['status'],
+                                             sanitized_payload_status['date'])
 
             logger.info(f"Sanitized Payload Status for DB {sanitized_payload_status}")
             # insert into database
