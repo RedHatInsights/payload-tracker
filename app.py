@@ -26,6 +26,7 @@ GROUP_ID = os.environ.get('GROUP_ID', 'payload_tracker')
 THREAD_POOL_SIZE = int(os.environ.get('THREAD_POOL_SIZE', 8))
 PAYLOAD_TRACKER_TOPIC = os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker')
 API_PORT = os.environ.get('API_PORT', 8080)
+ENABLE_SOCKETS = os.environ.get('ENABLE_SOCKETS', "").lower() == "true"
 
 # Prometheus configuration
 DISABLE_PROMETHEUS = True if os.environ.get('DISABLE_PROMETHEUS') == "True" else False
@@ -513,8 +514,9 @@ if __name__ == "__main__":
         loop.create_task(update_current_services_and_sources(db))
 
         # setup sockets
-        logger.info("Setting up sockets")
-        sio.attach(app.app)
+        if ENABLE_SOCKETS:
+            logger.info("Setting up sockets")
+            sio.attach(app.app)
 
         # clean durations and statuses
         loop.create_task(clean_durations())
