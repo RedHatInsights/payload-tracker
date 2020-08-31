@@ -525,7 +525,8 @@ if __name__ == "__main__":
         # clean durations and statuses
         if ENABLE_SOCKETS:
             loop.create_task(clean_durations())
-        loop.create_task(clean_statuses())
+        if not DISABLE_PROMETHEUS:
+            loop.create_task(clean_statuses())
 
         # loops
         logger.info("Running...")
