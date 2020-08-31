@@ -523,7 +523,8 @@ if __name__ == "__main__":
             sio.attach(app.app)
 
         # clean durations and statuses
-        loop.create_task(clean_durations())
+        if ENABLE_SOCKETS:
+            loop.create_task(clean_durations())
         loop.create_task(clean_statuses())
 
         # loops
