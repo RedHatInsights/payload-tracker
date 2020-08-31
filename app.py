@@ -456,7 +456,7 @@ async def consume(client):
     data = await client.getmany()
     for tp, msgs in data.items():
         logger.debug("Received messages: %s", msgs)
-        loop.create_task(process_payload_status(msgs))
+        await process_payload_status(msgs)
     await asyncio.sleep(0.1)
 
 
