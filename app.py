@@ -333,7 +333,7 @@ async def process_payload_status(json_msgs):
             if data['request_id'] == '-1':
                 logger.debug(f"Payload {data} has request_id -1.")
                 continue
-            if VALIDATE_REQUEST_ID and (data['request_id'] > VALIDATE_REQUEST_ID_LENGTH):
+            if VALIDATE_REQUEST_ID and (len(data['request_id']) > VALIDATE_REQUEST_ID_LENGTH):
                 logger.debug(f"Payload {data} has invalid request_id length.")
                 continue
 
