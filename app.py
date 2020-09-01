@@ -27,6 +27,8 @@ THREAD_POOL_SIZE = int(os.environ.get('THREAD_POOL_SIZE', 8))
 PAYLOAD_TRACKER_TOPIC = os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker')
 API_PORT = os.environ.get('API_PORT', 8080)
 ENABLE_SOCKETS = os.environ.get('ENABLE_SOCKETS', "").lower() == "true"
+VALIDATE_REQUEST_ID = os.environ.get('VALIDATE_REQUEST_ID', "true").lower() == "true"
+VALIDATE_REQUEST_ID_LENGTH = os.environ.get('VALIDATE_REQUEST_ID_LENGTH', 32)
 
 # Prometheus configuration
 DISABLE_PROMETHEUS = True if os.environ.get('DISABLE_PROMETHEUS') == "True" else False
@@ -331,6 +333,9 @@ async def process_payload_status(json_msgs):
             if data['request_id'] == '-1':
                 logger.debug(f"Payload {data} has request_id -1.")
                 continue
+            if VALIDATE_REQUEST_ID and (data['request_id'] > VALIDATE_REQUEST_ID_LENGTH):
+                logger.debug(f"Payload {data} has invalid request_id length.")
+                continue
 
             # make things lower-case
             data['service'] = data['service'].lower()
@@ -456,7 +461,7 @@ async def consume(client):
     data = await client.getmany()
     for tp, msgs in data.items():
         logger.debug("Received messages: %s", msgs)
-        await process_payload_status(msgs)
+        loop.create_task(process_payload_status(msgs))
     await asyncio.sleep(0.1)
 
 
