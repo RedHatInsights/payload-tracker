@@ -10,9 +10,9 @@ sources = ['compliance-sidekiq', 'inventory', 'insights-client', 'compliance-con
 
 
 def generatePayloads():
-    request_id = str(uuid.uuid1())
-    inventory_id = str(uuid.uuid1())
-    system_id = str(uuid.uuid1())
+    request_id = str(uuid.uuid4().hex)
+    inventory_id = str(uuid.uuid4().hex)
+    system_id = str(uuid.uuid4().hex)
     source = sources[randint(0, len(sources) - 1)]
     account = str(randint(pow(10, 5), pow(10,6) - 1))
     print(f'request_id: {request_id}')

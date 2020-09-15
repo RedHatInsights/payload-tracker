@@ -1,7 +1,7 @@
 version: '3'
 services:
   payload-tracker-db:
-    image: registry.redhat.io/rhel8/postgresql-10
+    image: registry.redhat.io/rhel8/postgresql-12
     ports:
       - 5432:5432
     environment:
