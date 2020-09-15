@@ -6,9 +6,9 @@ import uuid
 from confluent_kafka import Producer
 
 
-request_id = str(uuid.uuid1())
-inventory_id = str(uuid.uuid1())
-system_id = str(uuid.uuid1())
+request_id = str(uuid.uuid4().hex)
+inventory_id = str(uuid.uuid4().hex)
+system_id = str(uuid.uuid4().hex)
 payload = {
     'service': 'this_service_is_new',
     'request_id': request_id,

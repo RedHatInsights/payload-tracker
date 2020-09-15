@@ -16,7 +16,7 @@ def produceMessageCallback(err, msg):
     else:
         print('Message delivered to {} [{}]'.format(msg.topic(), msg.partition()))
 
-request_id = str(uuid.uuid1())
+request_id = str(uuid.uuid4().hex)
 payloads = [
 {
        'service': 'ingress',

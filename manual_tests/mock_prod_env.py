@@ -63,7 +63,7 @@ async def post_payload():
             p.produce(os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker'),
                     json.dumps(payload), callback=produceMessageCallback)
             p.flush()
-    request_id = str(uuid.uuid1())
+    request_id = str(uuid.uuid4().hex)
     randomized = path_two_randomized.copy()
     shuffle(randomized)
     path_two = payload_path_two.copy()
