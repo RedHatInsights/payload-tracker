@@ -18,7 +18,7 @@ depends_on = None
 
 def upgrade():
     op.drop_table('partitions')
-    op.drop_table('partitioned_statuses')
+    op.execute('DROP TABLE partitioned_statuses CASCADE;')
 
     op.execute('CREATE TABLE partitioned_statuses (LIKE payload_statuses INCLUDING DEFAULTS) PARTITION BY RANGE (date);')
     op.execute('ALTER TABLE partitioned_statuses ALTER COLUMN id DROP DEFAULT;')
@@ -94,7 +94,7 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_table('partitioned_statuses')
+    op.execute('DROP TABLE partitioned_statuses CASCADE;')
     op.execute('DROP FUNCTION IF EXISTS create_partition(START TIMESTAMPTZ, STOP TIMESTAMPTZ);')
     op.execute('DROP FUNCTION IF EXISTS drop_partition(START TIMESTAMPTZ, STOP TIMESTAMPTZ);')
     op.execute('DROP FUNCTION IF EXISTS get_date_string(VALUE TIMESTAMPTZ);')
