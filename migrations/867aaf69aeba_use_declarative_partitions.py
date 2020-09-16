@@ -42,6 +42,15 @@ def upgrade():
                 NEW.payload_id, NEW.service_id, NEW.source_id, NEW.status_id, NEW.status_msg, NEW.date, NEW.created_at
             );
             RETURN NEW;
+        EXCEPTION
+            WHEN check_violation THEN
+                PERFORM create_partition(NEW.date::DATE, NEW.date::DATE + INTERVAL \'1 DAY\');
+                INSERT INTO partitioned_statuses (
+                    payload_id, service_id, source_id, status_id, status_msg, date, created_at
+                ) VALUES (
+                    NEW.payload_id, NEW.service_id, NEW.source_id, NEW.status_id, NEW.status_msg, NEW.date, NEW.created_at
+                );
+                RETURN NEW;
         END;
         $$
     ''')
@@ -91,6 +100,7 @@ def upgrade():
     ''')
 
     op.execute('SELECT create_partition(NOW()::DATE, NOW()::DATE + INTERVAL \'1 DAY\');')
+    op.execute('SELECT create_partition(NOW()::DATE + INTERVAL \'1 DAY\', NOW()::DATE + INTERVAL \'2 DAY\');')
 
 
 def downgrade():
@@ -149,6 +159,19 @@ def downgrade():
         BEFORE INSERT on partitioned_statuses
         FOR EACH ROW
         EXECUTE PROCEDURE find_or_create_partition();
+    ''')
+
+    op.execute('''
+        CREATE OR REPLACE FUNCTION update_partition() RETURNS TRIGGER LANGUAGE PLPGSQL AS $$
+        BEGIN
+            INSERT INTO partitioned_statuses (
+                payload_id, service_id, source_id, status_id, status_msg, date, created_at
+            ) VALUES (
+                NEW.payload_id, NEW.service_id, NEW.source_id, NEW.status_id, NEW.status_msg, NEW.date, NEW.created_at
+            );
+            RETURN NEW;
+        END
+        $$
     ''')
 
     # define cleanup
