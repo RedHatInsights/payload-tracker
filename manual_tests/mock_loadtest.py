@@ -104,7 +104,7 @@ p = Producer({'bootstrap.servers': os.environ.get('BOOTSTRAP_SERVERS', 'localhos
 for x in range(100):  # increase this for more messages
     payloads = generatePayloads()
     for payload in payloads:
-        payload['date'] = str(datetime.datetime.now())
+        payload['date'] = str(datetime.datetime.utcnow())
         p.poll(0)
         p.produce(os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker'),
                     json.dumps(payload), callback=produceMessageCallback)

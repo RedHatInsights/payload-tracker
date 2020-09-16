@@ -4,6 +4,7 @@ from cache import cache
 from sqlalchemy import inspect, cast, TIMESTAMP
 from sqlalchemy.orm import Bundle
 from dateutil import parser
+from dateutil.tz import tzutc
 import responses
 import operator
 import logging
@@ -42,10 +43,10 @@ async def search(*args, **kwargs):
         for date_field in ['created_at']:
             for date_group_str, date_group_fn in date_group_fns.items():
                 if date_field + date_group_str in kwargs:
-                    the_date = parser.parse(kwargs[date_field + date_group_str])
+                    the_date = parser.parse(kwargs[date_field + date_group_str]).astimezone(tzutc())
                     payload_query.append_whereclause(
                         date_group_fn(
-                            cast(getattr(Payload, date_field), TIMESTAMP), the_date.replace(tzinfo=None)))
+                            cast(getattr(Payload, date_field), TIMESTAMP(timezone=tzutc())), the_date))
 
         # Get the count before we apply the page size and offset
         payloads_count = await conn.scalar(payload_query.alias().count())

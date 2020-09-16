@@ -82,7 +82,7 @@ payloads = [
 print(f'Posting payload status with request_id: {request_id}')
 p = Producer({'bootstrap.servers': os.environ.get('BOOTSTRAP_SERVERS', 'localhost:29092')})
 for payload in payloads:
-  payload['date'] = str(datetime.datetime.now())
+  payload['date'] = str(datetime.datetime.utcnow())
   p.poll(0)
   p.produce(os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker'),
             json.dumps(payload), callback=produceMessageCallback)
