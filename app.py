@@ -7,8 +7,6 @@ from datetime import timedelta
 import traceback
 import json
 
-from aiokafka import AIOKafkaConsumer
-from kafkahelpers import ReconnectingClient
 from prometheus_client import start_http_server, Info, Counter, Summary
 from bounded_executor import BoundedExecutor
 import asyncio
@@ -19,12 +17,10 @@ from connexion.resolver import RestyResolver
 from db import init_db, db, Payload, PayloadStatus, tables
 from cache import cache
 import tracker_logging
+from kafka_consumer import consumer
 
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
-BOOTSTRAP_SERVERS = os.environ.get('BOOTSTRAP_SERVERS', 'localhost:29092')
-GROUP_ID = os.environ.get('GROUP_ID', 'payload_tracker')
 THREAD_POOL_SIZE = int(os.environ.get('THREAD_POOL_SIZE', 8))
-PAYLOAD_TRACKER_TOPIC = os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker')
 API_PORT = os.environ.get('API_PORT', 8080)
 ENABLE_SOCKETS = os.environ.get('ENABLE_SOCKETS', "").lower() == "true"
 VALIDATE_REQUEST_ID = os.environ.get('VALIDATE_REQUEST_ID', "true").lower() == "true"
@@ -74,13 +70,6 @@ logger.info("Starting thread pool executor and asyncio loop.")
 executor = BoundedExecutor(0, THREAD_POOL_SIZE)
 loop = asyncio.get_event_loop()
 loop.set_default_executor(executor)
-
-# setup consumer
-kafka_consumer = AIOKafkaConsumer(
-    PAYLOAD_TRACKER_TOPIC, loop=loop, bootstrap_servers=BOOTSTRAP_SERVERS,
-    group_id=GROUP_ID
-)
-CONSUMER = ReconnectingClient(kafka_consumer, "consumer")
 
 # Setup sockets
 if ENABLE_SOCKETS:
@@ -494,10 +483,7 @@ if __name__ == "__main__":
 
         # Log env vars / settings
         logger.info("Using LOG_LEVEL: %s", LOG_LEVEL)
-        logger.info("Using BOOTSTRAP_SERVERS: %s", BOOTSTRAP_SERVERS)
-        logger.info("Using GROUP_ID: %s", GROUP_ID)
         logger.info("Using THREAD_POOL_SIZE: %s", THREAD_POOL_SIZE)
-        logger.info("Using PAYLOAD_TRACKER_TOPIC: %s", PAYLOAD_TRACKER_TOPIC)
         logger.info("Using DISABLE_PROMETHEUS: %s", DISABLE_PROMETHEUS)
         logger.info("Using PROMETHEUS_PORT: %s", PROMETHEUS_PORT)
 
@@ -512,7 +498,7 @@ if __name__ == "__main__":
 
         # add consumer callbacks
         logger.info('Starting Kafka consumer for Payload status messages.')
-        loop.create_task(CONSUMER.get_callback(consume)())
+        loop.create_task(consumer.get_client().get_callback(consume)())
 
         # setup http app and db
         logger.info("Setting up Database")
