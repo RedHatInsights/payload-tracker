@@ -256,6 +256,16 @@ paths:
                 items:
                   $ref: '#/definitions/StatusRetrieve'
                 description: List of statuses based on the filters, page size and offset
+  /health:
+    get:
+      description: 'runs liveness checks for the api and service and returns 200 or 404'
+      responses:
+        '202':
+          description: 'liveness checks successful'
+          $ref: '#/responses/TestPassed'
+        '404':
+          description: 'liveness checks failed'
+          $ref: '#/responses/TestFailed'
   /stats:
     get:
       description: ''
@@ -279,8 +289,23 @@ responses:
     description: The specified resource was not found
     schema:
       $ref: '#/definitions/Error'
+  TestFailed:
+    description: 'The tests run were unsuccessful'
+    schema:
+      $ref: '#/definitions/Error'
+  TestPassed:
+    description: 'The tests run were successful'
+    schema:
+      $ref: '#/definitions/Success'
 definitions:
   Error:
+    type: object
+    properties:
+      message:
+        type: string
+    required:
+      - message
+  Success:
     type: object
     properties:
       message:

@@ -59,6 +59,14 @@ def get_with_duration(entities, durations):
     return _response(data={'data': entities, 'duration': durations}, status=HTTPStatus.OK)
 
 
+def success(msg):
+    return _response(data=msg, status=HTTPStatus.OK)
+
+
+def failed(msg):
+    return _response(data=msg, status=HTTPStatus.NOT_FOUND)
+
+
 def get(entity):
     return _response(data=entity, status=HTTPStatus.OK)
 
