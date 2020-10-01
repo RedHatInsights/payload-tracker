@@ -408,6 +408,7 @@ async def process_payload_status(json_msgs):
                 except:
                     the_error = traceback.format_exc()
                     logger.error(f"Error parsing date: {the_error}")
+                    continue
 
             # Add payload to durations
             if ENABLE_SOCKETS:
@@ -422,7 +423,7 @@ async def process_payload_status(json_msgs):
 
             logger.info(f"Sanitized Payload Status for DB {sanitized_payload_status}")
             # insert into database
-            try:
+            async def insert_status(sanitized_payload_status):
                 async with db.transaction():
                     payload_status_to_create = PayloadStatus(**sanitized_payload_status)
                     created_payload_status = await payload_status_to_create.create()
@@ -439,9 +440,18 @@ async def process_payload_status(json_msgs):
                             del dump[f'{column}_id']
                     if ENABLE_SOCKETS:
                         await sio.emit('payload', dump)
-            except:
-                logger.error(f"Failed to parse message with Error: {traceback.format_exc()}")
-                continue
+            try:
+                await insert_status(sanitized_payload_status)
+            except Exception as err:
+                logger.error(f'Failed to insert PayloadStatus with ERROR: {err}')
+                # First, we assume there is no partition. If there is a further error, simply try reinsertion
+                try:
+                    date = sanitized_payload_status['date']
+                    await db.bind.scalar(f'SELECT create_partition(\'{date}\'::DATE, \'{date}\'::DATE + INTERVAL \'1 DAY\');')
+                    await insert_status(sanitized_payload_status)
+                except Exception as err:
+                    logger.error(f'Failed to insert PayloadStatus with ERROR: {err}')
+                    await insert_status(sanitized_payload_status)
         else:
             continue
 
