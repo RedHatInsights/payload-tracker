@@ -145,12 +145,6 @@ paths:
     get:
       description: 'Get individual payload statuses for payloads.'
       parameters:
-        - name: partition
-          in: query
-          description: Tells api to query partitioned version of statuses table
-          required: false
-          type: boolean
-          default: false
         - name: page
           in: query
           description: A page number within the paginated result set.

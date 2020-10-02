@@ -45,22 +45,6 @@ class PayloadStatus(db.Model):
         return {k: v for k, v in self.__values__.items() if v is not None}
 
 
-class PartitionedStatus(db.Model):
-    __tablename__ = 'partitioned_statuses'
-
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    payload_id = db.Column(db.Integer, db.ForeignKey('payloads.id', ondelete='CASCADE'))
-    service_id = db.Column(db.Integer, db.ForeignKey('services.id'))
-    source_id = db.Column(db.Integer, db.ForeignKey('sources.id'))
-    status_id = db.Column(db.Unicode, db.ForeignKey('statuses.id'))
-    status_msg = db.Column(db.Unicode)
-    date = db.Column(db.DateTime(timezone=True), server_default="timezone('utc'::text, now())")
-    created_at = db.Column(db.DateTime(timezone=True), server_default="timezone('utc'::text, now())")
-
-    def dump(self):
-        return {k: v for k, v in self.__values__.items() if v is not None}
-
-
 class Sources(db.Model):
     __tablename__ = 'sources'
 
