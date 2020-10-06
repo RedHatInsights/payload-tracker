@@ -15,6 +15,7 @@ import socketio
 from connexion.resolver import RestyResolver
 
 from db import init_db, db, Payload, PayloadStatus, tables
+from utils import Triple, TripleSet
 from cache import cache
 import tracker_logging
 from kafka_consumer import consumer
@@ -84,213 +85,87 @@ if ENABLE_SOCKETS:
         logger.debug('Socket disconnected: %s', sid)
 
 
-# collects duration data and emits via sio as payloads are processed
-# accumulated_durations = {
-#   request_id: {
-#     recorded: time.time(),
-#     services: {
-#       service: [
-#         datetime(), datetime(), ...
-#       ]
-#     }
-#   }
-# }
-accumulated_durations = {}
-
-async def clean_durations():
-    threshold = timedelta(int(os.environ.get('DURATIONS_DELETION_THRESHOLD', 60)))
-    interval = int(os.environ.get('DURATIONS_DELETION_INTERVAL', 20))
-    while True:
-        await asyncio.sleep(interval, loop=loop)
-        ids_to_delete = []
-        for request_id, payload in accumulated_durations.items():
-            now = time.time()
-            if 'recorded' in payload and timedelta(now - payload['recorded']) > threshold:
-                ids_to_delete.append(request_id)
-        for request_id in ids_to_delete:
-            logger.debug(f'Removing record for payload with request_id: {request_id}')
-            del accumulated_durations[request_id]
-
-
-async def accumulate_payload_durations(payload):
-    def _calculate_total_time(p_id):
-        times = []
-        for service in accumulated_durations[p_id]['services']:
-            times.extend([time for time in accumulated_durations[p_id]['services'][service]])
-        times.sort()
-        return times[-1] - times[0]
-
-    def _calculate_indiv_service_time(p_id, p_service):
-        times = [time for time in accumulated_durations[p_id]['services'][p_service]]
-        times.sort()
-        return times[-1] - times[0]
-
-    def _calculate_total_service_time(p_id):
-        total = timedelta(0)
-        for service in accumulated_durations[p_id]['services']:
-            total += _calculate_indiv_service_time(p_id, service)
-        return total
-
-    async def _emit(request_id, key, data):
-        if ENABLE_SOCKETS:
-            await sio.emit('duration', {'id': request_id, 'key': key, 'data': data })
-
-    logger.debug(f'Preparing for duration emission with payload: {payload}')
-
-    # scrub payload for tokens
-    p_id = payload['request_id']
-    p_status = payload['status']
-    p_service = payload['service']
-    p_date = payload['date']
-
-    # append or remove payload from dictionary
-    if p_id in accumulated_durations:
-        if p_service in accumulated_durations[p_id]['services']:
-            accumulated_durations[p_id]['services'][p_service].append(p_date)
-        else:
-            accumulated_durations[p_id]['services'][p_service] = [p_date]
-    else:
-        accumulated_durations[p_id] = {'services': {p_service: [p_date]}}
-
-    accumulated_durations[p_id]['recorded'] = time.time()
-
-    if ENABLE_SOCKETS:
-        await _emit(p_id, 'total_time_in_services', str(_calculate_total_service_time(p_id)))
-        await _emit(p_id, 'total_time', str(_calculate_total_time(p_id)))
-        await _emit(p_id, p_service, str(_calculate_indiv_service_time(p_id, p_service)))
-
-
-# keep track of payloads and their statuses for prometheus metric counters
+# keep track of payloads and their statuses for prometheus metric counters and sockets
 # payload_statuses  = {
-#    '123456': {
-#       'ingress': ['received', 'processing', 'success'],
-#       'pup': ['received', 'processing', 'success'],
-#       'advisor': ['received', 'processing', 'success']
+#   request_id: {
+#       'recorded': time.time(),
+#       'services': {
+#          'ingress': [('success', None): datetime(), ...]
+#          'insights-advisor-service': [('processing', None): datetime(), ...]
+#          ...
+#       }
 #    }
 # }
 payload_statuses = {}
 
-# payload_status_total_times = {
-#    '123456': {'start':12312412, 'stop': 12312123}
-# }
-payload_status_total_times = {}
-
-# payload_status_service_total_times = {
-#    '123456': {
-#                  {'ingress': {'start':12312412, 'stop': 12312123},
-#                  {'pup': {'start':12345}
-#               }
-# }
-payload_status_service_total_times = {}
-
-
-##### TODO: clean these properly
 async def clean_statuses():
-    interval = int(os.environ.get('STATUS_DELETION_INTERVAL', 60))
+    threshold = int(os.environ.get('STATUS_DELETION_THRESHOLD', 60))
+    interval = int(os.environ.get('STATUS_DELETION_INTERVAL', 20))
     while True:
         await asyncio.sleep(interval, loop=loop)
-        payload_statuses.clear()
-        payload_status_total_times.clear()
-        payload_status_service_total_times.clear()
-
-def check_payload_status_metrics(request_id, service, status, service_date=None):
-
-    # Determine unique payload statuses (uniquely increment service status counts)
-    unique_payload_service_and_status = True
-    if request_id in payload_statuses:
-        if service in payload_statuses[request_id]:
-            if status in payload_statuses[request_id][service]:
-                unique_payload_service_and_status = False
-        else:
-            payload_statuses[request_id][service] = list()
-    else:
-        payload_statuses[request_id] = {}
-        payload_statuses[request_id][service] = list()
-
-    if unique_payload_service_and_status:
-        payload_statuses[request_id][service].append(status)
-        SERVICE_STATUS_COUNTER.labels(service_name=service, status=status).inc()
-
-    # Clean up anything we don't still need to track in memory
-    if status in ['error', 'success', 'announced']:
-        try:
-            if service == 'insights-advisor-service':
+        ids_to_delete = []
+        for request_id, payload in payload_statuses.items():
+            if time.time() - payload['recorded'] > threshold:
+                ids_to_delete.append(request_id)
+        for request_id in ids_to_delete:
+            try:
                 del payload_statuses[request_id]
+            except:
+                continue
+
+
+async def evaluate_status_metrics(**kwargs):
+    request_id, service, status, date, source = tuple(kwargs.values())
+
+    def calculate_upload_time(request_id):
+        times = [time for service in payload_statuses[request_id]['services'].values() for time in service.values()]
+        times.sort()
+        return (times[-1] - times[0]).total_seconds()
+
+    def calculate_indiv_service_time(request_id, service):
+        times = [time for time in payload_statuses[request_id]['services'][service].values()]
+        times.sort()
+        return (times[-1] - times[0]).total_seconds()
+
+    def calculate_total_service_time(request_id):
+        return sum([calculate_indiv_service_time(
+            request_id, service) for service in payload_statuses[request_id]['services'].keys()])
+
+    async def emit(request_id, key, data):
+        await sio.emit('duration', {'id': request_id, 'key': key, 'data': data })
+
+    def determine_uniqueness():
+        if request_id in payload_statuses:
+            if service in payload_statuses[request_id]['services'].keys():
+                if (status, source) in payload_statuses[request_id]['services'][service].keys():
+                    return False
+                else:
+                    payload_statuses[request_id]['services'][service].append(Triple(status, source, date))
             else:
-                del payload_statuses[request_id][service]
-        except:
-            logger.debug(f"Could not delete payload status cache for "
-                        f"{request_id} - {service} - {status}")
+                payload_statuses[request_id]['services'][service] = TripleSet(Triple(status, source, date))
+        else:
+            payload_statuses[request_id] = {'services': {service: TripleSet(Triple(status, source, date))}}
+        payload_statuses[request_id]['recorded'] = time.time()
+        return True
 
-    # Determine TOTAL Upload elapsed times (ingress all the way to advisor)
-    try:
-        if service == 'ingress' and status == 'received':
-            payload_status_total_times[request_id] = {}
-            payload_status_total_times[request_id]['start'] = service_date
-        if service == 'insights-advisor-service' and status == 'success':
-            start = payload_status_total_times[request_id]['start']
-            stop = service_date
-            elapsed = (stop - start).total_seconds()
-            UPLOAD_TIME_ELAPSED.observe(elapsed)
+    # Add payload to payload_statuses and determine uniqueness
+    if determine_uniqueness():
+        # evaluate prometheus metrics if not disabled
+        # TODO: Add functionality for UPLOAD_TIME_ELAPSED prometheus metric
+        if not DISABLE_PROMETHEUS:
+            SERVICE_STATUS_COUNTER.labels(service_name=service, status=status).inc()
+            for service_name in payload_statuses[request_id]['services'].keys():
+                UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service_name).observe(
+                    calculate_indiv_service_time(request_id, service_name))
 
-        # Clean up memory
-        if service == 'ingress' and status == 'error':
-            del payload_status_total_times[request_id]
-        if service == 'advisor-pup' and status == 'error':
-            del payload_status_total_times[request_id]
-        if service == 'insights-advisor-service' and status in ['success', 'error']:
-            del payload_status_total_times[request_id]
-    except:
-        logger.debug(f"Could not update payload status total upload time for "
-                    f"{request_id} - {service} - {status}")
-
-
-    # Determine elapsed times PER SERVICE INDIVIDUALLY
-    try:
-        # Determine ingress (at some point we should probably subtract the elapsed time for pup here)
-        # The flow is ingress -> pup -> ingress -> advisor service (currently)
-        # This will need to change when PUPTOO becomes a thing
-        if service == 'ingress' and status == 'received':
-            payload_status_service_total_times[request_id] = {}
-            payload_status_service_total_times[request_id]['ingress'] = {}
-            payload_status_service_total_times[request_id]['ingress']['start'] = service_date
-        if service == 'ingress' and status == 'announced':
-            start = payload_status_service_total_times[request_id]['ingress']['start']
-            stop = service_date
-            elapsed = (stop - start).total_seconds()
-            UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service).observe(elapsed)
-            del payload_status_service_total_times[request_id]['ingress']
-        # Determine pup
-        if service == 'advisor-pup' and status == 'processing':
-            payload_status_service_total_times[request_id]['advisor-pup'] = {}
-            payload_status_service_total_times[request_id]['advisor-pup']['start'] = service_date
-        if service == 'advisor-pup' and status == 'success':
-            start = payload_status_service_total_times[request_id]['advisor-pup']['start']
-            stop = service_date
-            elapsed = (stop - start).total_seconds()
-            UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service).observe(elapsed)
-            del payload_status_service_total_times[request_id]['advisor-pup']
-        # Determine advisor
-        if service == 'insights-advisor-service' and status == 'received':
-            payload_status_service_total_times[request_id]['insights-advisor-service'] = {}
-            payload_status_service_total_times[request_id]['insights-advisor-service']['start'] = service_date
-        if service == 'insights-advisor-service' and status == 'success':
-            start = payload_status_service_total_times[request_id]['insights-advisor-service']['start']
-            stop = service_date
-            elapsed = (stop - start).total_seconds()
-            UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service).observe(elapsed)
-
-        # Clean up any errors
-        if service == 'ingress' and status == 'error':
-            del payload_status_service_total_times[request_id]
-        if service == 'advisor-pup' and status == 'error':
-            del payload_status_service_total_times[request_id]
-        if service == 'insights-advisor-service' and status in ['success', 'error']:
-            del payload_status_service_total_times[request_id]
-
-    except:
-        logger.debug(f"Could not update payload status service elapsed time for "
-                    f"{request_id} - {service} - {status}")
+    # emit upload if sockets enabled
+    if ENABLE_SOCKETS:
+        await emit(request_id, 'total_time_in_services', str(
+            timedelta(seconds=calculate_total_service_time(request_id))))
+        await emit(request_id, 'total_time', str(
+            timedelta(seconds=calculate_upload_time(request_id))))
+        await emit(request_id, service, str(
+            timedelta(seconds=calculate_indiv_service_time(request_id, service))))
 
 
 async def process_payload_status(json_msgs):
@@ -410,16 +285,15 @@ async def process_payload_status(json_msgs):
                     logger.error(f"Error parsing date: {the_error}")
                     continue
 
-            # Add payload to durations
-            if ENABLE_SOCKETS:
-                await accumulate_payload_durations({**data, 'date': sanitized_payload_status['date']})
-
             # Increment Prometheus Metrics
-            if not DISABLE_PROMETHEUS:
-                check_payload_status_metrics(sanitized_payload_status['payload_id'],
-                                             data['service'],
-                                             data['status'],
-                                             sanitized_payload_status['date'])
+            if not DISABLE_PROMETHEUS or ENABLE_SOCKETS:
+                await evaluate_status_metrics(**{
+                    'request_id': data['request_id'],
+                    'service': data['service'],
+                    'status': data['status'],
+                    'date': sanitized_payload_status['date'],
+                    'source': None if 'source' not in data else data['source']
+                })
 
             logger.info(f"Sanitized Payload Status for DB {sanitized_payload_status}")
             # insert into database
@@ -523,10 +397,8 @@ if __name__ == "__main__":
             logger.info("Setting up sockets")
             sio.attach(app.app)
 
-        # clean durations and statuses
-        if ENABLE_SOCKETS:
-            loop.create_task(clean_durations())
-        if not DISABLE_PROMETHEUS:
+        # clean durations and metrics
+        if not DISABLE_PROMETHEUS or ENABLE_SOCKETS:
             loop.create_task(clean_statuses())
 
         # loops
