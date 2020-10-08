@@ -32,12 +32,12 @@ DISABLE_PROMETHEUS = True if os.environ.get('DISABLE_PROMETHEUS') == "True" else
 PROMETHEUS_PORT = os.environ.get('PROMETHEUS_PORT', 8000)
 SERVICE_STATUS_COUNTER = Counter('payload_tracker_service_status_counter',
                                  'Counters for services and their various statuses',
-                                 ['service_name', 'status'])
+                                 ['service_name', 'status', 'source_name'])
 UPLOAD_TIME_ELAPSED = Summary('payload_tracker_upload_time_elapsed',
                               'Tracks the total elapsed upload time')
 UPLOAD_TIME_ELAPSED_BY_SERVICE = Summary('payload_tracker_upload_time_by_service_elapsed',
                                          'Tracks the elapsed upload time by service',
-                                         ['service_name'])
+                                         ['service_name', 'source_name'])
 
 PAYLOAD_TRACKER_SERVICE_VERSION = Info(
     'payload_tracker_service_version',
@@ -85,7 +85,8 @@ if ENABLE_SOCKETS:
         logger.debug('Socket disconnected: %s', sid)
 
 
-# keep track of payloads and their statuses for prometheus metric counters and sockets
+# Keep track of payloads and their statuses for prometheus metric counters and sockets
+# Note: we are using a custom class to define the list of service statuses
 # payload_statuses  = {
 #   request_id: {
 #       'recorded': time.time(),
@@ -122,14 +123,20 @@ async def evaluate_status_metrics(**kwargs):
         times.sort()
         return (times[-1] - times[0]).total_seconds()
 
-    def calculate_indiv_service_time(request_id, service):
-        times = [time for time in payload_statuses[request_id]['services'][service].values()]
+    def calculate_service_time_by_source(request_id, service, source):
+        times = [value for key, value in payload_statuses[request_id]['services'][service].items() if key[1] == source]
         times.sort()
         return (times[-1] - times[0]).total_seconds()
 
     def calculate_total_service_time(request_id):
-        return sum([calculate_indiv_service_time(
-            request_id, service) for service in payload_statuses[request_id]['services'].keys()])
+        service_to_sources = {}
+        for service, data in payload_statuses[request_id]['services'].items():
+            service_to_sources[service] = set([source for status, source in data.keys()])
+        return sum([calculate_service_time_by_source(
+            request_id, service, source) for service, sources in service_to_sources.items() for source in sources])
+
+    def is_service_passed_for_source():
+        return status in ['success', 'error'] and ('received', source) in payload_statuses[request_id]['services'][service].keys()
 
     async def emit(request_id, key, data):
         await sio.emit('duration', {'id': request_id, 'key': key, 'data': data })
@@ -153,10 +160,10 @@ async def evaluate_status_metrics(**kwargs):
         # evaluate prometheus metrics if not disabled
         # TODO: Add functionality for UPLOAD_TIME_ELAPSED prometheus metric
         if not DISABLE_PROMETHEUS:
-            SERVICE_STATUS_COUNTER.labels(service_name=service, status=status).inc()
-            for service_name in payload_statuses[request_id]['services'].keys():
-                UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service_name).observe(
-                    calculate_indiv_service_time(request_id, service_name))
+            SERVICE_STATUS_COUNTER.labels(service_name=service, status=status, source_name=source).inc()
+            if is_service_passed_for_source():
+                UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service, source_name=source).observe(
+                    calculate_service_time_by_source(request_id, service, source))
 
     # emit upload if sockets enabled
     if ENABLE_SOCKETS:
@@ -165,7 +172,7 @@ async def evaluate_status_metrics(**kwargs):
         await emit(request_id, 'total_time', str(
             timedelta(seconds=calculate_upload_time(request_id))))
         await emit(request_id, service, str(
-            timedelta(seconds=calculate_indiv_service_time(request_id, service))))
+            timedelta(seconds=calculate_service_time_by_source(request_id, service, source))))
 
 
 async def process_payload_status(json_msgs):
