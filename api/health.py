@@ -4,6 +4,8 @@ import traceback
 import asyncio
 import aiohttp
 
+from datetime import datetime
+from datetime import timedelta
 import responses
 import settings
 from db import db
@@ -42,7 +44,9 @@ async def check_endpoint(host, port, endpoint, timeout=300, options={}):
                     raise Exception(f'http://{host}:{port}{endpoint} returned status {res.status}')
         except:
             if count == MAX_ENDPOINT_CHECK_RETRY - 1:
-                raise Exception(traceback.format_exc())
+                err = traceback.format_exc()
+                logger.error(f'Error raised for endpoint {endpoint}?{"&".join([f"{k}={v}" for k, v in options.items()])}: {err}'})
+                raise Exception(err)
             await asyncio.sleep(ENDPOINT_CHECK_TIMEOUT)
 
 
@@ -56,7 +60,9 @@ async def check_kafka_connection(loop):
                 raise
         except:
             if count == KAFKA_RETRY_MAX - 1:
-                raise Exception(traceback.format_exc())
+                err = traceback.format_exc()
+                logger.error(err)
+                raise Exception(err)
             await asyncio.sleep(KAFKA_COUNT_TIMEOUT)
 
 
@@ -79,7 +85,6 @@ async def search(*args, **kwargs):
     try:
         await check_kafka_connection(asyncio.get_event_loop())
     except Exception as err:
-        logger.error(f'{FAILED_MSG} with error: {err}')
         return responses.failed(f'{FAILED_MSG} with error: {err}')
 
     # check responsiveness of /payloads
@@ -91,7 +96,6 @@ async def search(*args, **kwargs):
         if payloads and 'data' in payloads and len(payloads['data']) > 0:
             request_id = payloads['data'][0]['request_id']
     except Exception as err:
-        logger.error(f'{FAILED_MSG} with error: {err}')
         return responses.failed(f'{FAILED_MSG} with error: {err}')
 
     # check responsiveness of /payloads/:request_id
@@ -101,16 +105,17 @@ async def search(*args, **kwargs):
         try:
             await check_endpoint('localhost', API_PORT, f'/v1/payloads/{request_id}', timeout=TIMEOUT_SECONDS)
         except Exception as err:
-            logger.error(f'{FAILED_MSG} with error: {err}')
             return responses.failed(f'{FAILED_MSG} with error: {err}')
 
     # check responsiveness of additional endpoints on API_PORT
     logger.debug(f'Checking connection to /v1/statuses...')
     try:
         await check_endpoint('localhost', API_PORT, '/v1/statuses',
-            timeout=TIMEOUT_SECONDS, options=OPTIONS)
+            timeout=TIMEOUT_SECONDS, options={**OPTIONS, **{
+                'date_lt': datetime.utcnow().isoformat(),
+                'date_gte': (datetime.utcnow() - timedelta(minutes=1)).isoformat()
+            }})
     except Exception as err:
-        logger.error(f'{FAILED_MSG} with error: {err}')
         return responses.failed(f'{FAILED_MSG} with error: {err}')
 
     if ENABLE_SOCKETS:
@@ -119,7 +124,6 @@ async def search(*args, **kwargs):
         try:
             await check_endpoint('localhost', API_PORT, '/socket.io')
         except Exception as err:
-            logger.error(f'{FAILED_MSG} with error: {err}')
             return responses.failed(f'{FAILED_MSG} with error: {err}')
 
     if not DISABLE_PROMETHEUS:
@@ -128,7 +132,6 @@ async def search(*args, **kwargs):
         try:
             await check_endpoint('localhost', PROMETHEUS_PORT, '/metrics')
         except Exception as err:
-            logger.error(f'{FAILED_MSG} with error: {err}')
             return responses.failed(f'{FAILED_MSG} with err: {err}')
 
     # if no exceptions to this point, success
