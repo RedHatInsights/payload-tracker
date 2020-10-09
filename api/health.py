@@ -70,6 +70,7 @@ async def search(*args, **kwargs):
             await conn.release()
         except:
             if count == DB_RETRY_MAX - 1:
+                logger.error(f'{FAILED_MSG} with error: {traceback.format_exc()}')
                 return responses.failed(f'{FAILED_MSG} with error: {traceback.format_exc()}')
             await asyncio.sleep(DB_COUNT_TIMEOUT)
 
@@ -78,6 +79,7 @@ async def search(*args, **kwargs):
     try:
         await check_kafka_connection(asyncio.get_event_loop())
     except Exception as err:
+        logger.error(f'{FAILED_MSG} with error: {err}')
         return responses.failed(f'{FAILED_MSG} with error: {err}')
 
     # check responsiveness of /payloads
@@ -89,6 +91,7 @@ async def search(*args, **kwargs):
         if payloads and 'data' in payloads and len(payloads['data']) > 0:
             request_id = payloads['data'][0]['request_id']
     except Exception as err:
+        logger.error(f'{FAILED_MSG} with error: {err}')
         return responses.failed(f'{FAILED_MSG} with error: {err}')
 
     # check responsiveness of /payloads/:request_id
@@ -98,6 +101,7 @@ async def search(*args, **kwargs):
         try:
             await check_endpoint('localhost', API_PORT, f'/v1/payloads/{request_id}', timeout=TIMEOUT_SECONDS)
         except Exception as err:
+            logger.error(f'{FAILED_MSG} with error: {err}')
             return responses.failed(f'{FAILED_MSG} with error: {err}')
 
     # check responsiveness of additional endpoints on API_PORT
@@ -106,6 +110,7 @@ async def search(*args, **kwargs):
         await check_endpoint('localhost', API_PORT, '/v1/statuses',
             timeout=TIMEOUT_SECONDS, options=OPTIONS)
     except Exception as err:
+        logger.error(f'{FAILED_MSG} with error: {err}')
         return responses.failed(f'{FAILED_MSG} with error: {err}')
 
     if ENABLE_SOCKETS:
@@ -114,6 +119,7 @@ async def search(*args, **kwargs):
         try:
             await check_endpoint('localhost', API_PORT, '/socket.io')
         except Exception as err:
+            logger.error(f'{FAILED_MSG} with error: {err}')
             return responses.failed(f'{FAILED_MSG} with error: {err}')
 
     if not DISABLE_PROMETHEUS:
@@ -122,6 +128,7 @@ async def search(*args, **kwargs):
         try:
             await check_endpoint('localhost', PROMETHEUS_PORT, '/metrics')
         except Exception as err:
+            logger.error(f'{FAILED_MSG} with error: {err}')
             return responses.failed(f'{FAILED_MSG} with err: {err}')
 
     # if no exceptions to this point, success
