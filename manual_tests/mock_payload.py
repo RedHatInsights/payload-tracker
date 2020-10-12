@@ -36,7 +36,7 @@ payloads = [
 {
        'service': 'advisor-pup',
        'request_id': request_id,
-       'status': 'processing'
+       'status': 'received'
 },
 {
        'service': 'advisor-pup',
@@ -46,7 +46,7 @@ payloads = [
 {
        'service': 'ingress',
        'request_id': request_id,
-       'status': 'announced'
+       'status': 'success'
 },
 {
        'service': 'insights-advisor-service',
@@ -56,14 +56,16 @@ payloads = [
 {
        'service': 'insights-advisor-service',
        'request_id': request_id,
-       'status': 'processing',
-       'status_msg': 'analyzing archive'
+       'status': 'received',
+       'status_msg': 'analyzing archive',
+       'source': 'inventory'
 },
 {
        'service': 'insights-advisor-service',
        'request_id': request_id,
-       'status': 'processing',
-       'status_msg': 'generating reports'
+       'status': 'success',
+       'status_msg': 'generating reports',
+       'source': 'inventory'
 },
 {
        'service': 'insights-advisor-service',

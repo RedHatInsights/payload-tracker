@@ -1,10 +1,11 @@
 from db import Payload, PayloadStatus, db
-from utils import dump
+from utils import dump, Triple, TripleSet
 from cache import cache
 from sqlalchemy import inspect, cast, TIMESTAMP
 from sqlalchemy.orm import Bundle
 from dateutil import parser
 from dateutil.tz import tzutc
+from datetime import timedelta
 import responses
 import operator
 import logging
@@ -71,36 +72,37 @@ async def search(*args, **kwargs):
         return responses.search(payloads_count, payloads_dump, elapsed)
 
 
-def _get_durations(services, payloads):
-    service_to_times = {}
-    service_to_duration = {}
-    all_times = []
-
+def _get_durations(payloads):
+    durations = {}
     if len(payloads) > 0:
-        for key, service in services.items():
-            for payload in payloads:
-                all_times.append(payload['date'])
-                if payload['service'] == service:
-                    if service in service_to_times:
-                        service_to_times[service].append(payload['date'])
-                    else:
-                        service_to_times[service] = [payload['date']]
+        # place payloads into buckets by service and source
+        services_by_source = TripleSet()
+        for payload in payloads:
+            service, date, source = tuple({
+                'service': payload['service'], 'date': payload['date'],
+                'source': 'undefined' if 'source' not in payload else payload['source']}.values())
+            if (service, source) not in services_by_source.keys() or date not in services_by_source.values():
+                services_by_source.append(Triple(service, source, date))
 
-        all_times.sort()
-        service_to_duration['total_time'] = str(all_times[-1] - all_times[0])
+        # compute duration for each bucket of service and source
+        keys = set(services_by_source.keys())
+        for key in keys:
+            values = [v for k, v in services_by_source.items() if k == key]
+            values.sort()
+            # we will use the same key structure on the frontend "service:source"
+            durations[f'{key[0]}:{key[1]}'] = values[-1] - values[0]
 
-        for service in services.values():
-            if service in service_to_times.keys():
-                times = [time for time in service_to_times[service]]
-                times.sort()
-                if 'total_time_in_services' in service_to_duration.keys():
-                    service_to_duration['total_time_in_services'] += times[-1] - times[0]
-                else:
-                    service_to_duration['total_time_in_services'] = times[-1] - times[0]
-                service_to_duration[service] = str(times[-1] - times[0])
-        service_to_duration['total_time_in_services'] = str(service_to_duration['total_time_in_services'])
+        # compute total time in services
+        durations['total_time_in_services'] = timedelta(seconds=sum(
+            [time.total_seconds() for time in durations.values()]))
 
-    return service_to_duration
+        # compute total time
+        values = services_by_source.values()
+        values.sort()
+        durations['total_time'] = values[-1] - values[0]
+
+    # return results as dict object
+    return {} if durations == {} else {k: str(v) for k, v in durations.items()}
 
 
 async def get(request_id, *args, **kwargs):
@@ -150,6 +152,5 @@ async def get(request_id, *args, **kwargs):
                     status[column_name] = cache.get_value(table_name)[status[f'{column_name}_id']]
                     del status[f'{column_name}_id']
 
-        durations = _get_durations(cache.get_value('services'), payload_statuses_dump)
-
+        durations = _get_durations(payload_statuses_dump)
         return responses.get_with_duration(payload_statuses_dump, durations)

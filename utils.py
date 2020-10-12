@@ -23,6 +23,9 @@ class TripleSet():
     def values(self):
         return [item.value for item in self.data]
 
+    def items(self):
+        return [(item.key, item.value) for item in self.data]
+
     def append(self, value):
         if type(value) is Triple:
             self.data.append(value)

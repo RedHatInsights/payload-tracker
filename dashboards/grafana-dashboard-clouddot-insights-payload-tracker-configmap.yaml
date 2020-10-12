@@ -203,8 +203,8 @@ data:
             "steppedLine": false,
             "targets": [
               {
-                "expr": "sum(increase(payload_tracker_service_status_counter_total[1m])) by (service_name, status)",
-                "legendFormat": "{{service_name}} - {{status}}",
+                "expr": "sum(increase(payload_tracker_service_status_counter_total[1m])) by (service_name, status, source_name)",
+                "legendFormat": "{{service_name}} (source: {{source_name}}) - {{status}}",
                 "refId": "A"
               }
             ],
@@ -297,8 +297,8 @@ data:
                 "refId": "A"
               },
               {
-                "expr": "sum(rate(payload_tracker_upload_time_by_service_elapsed_sum[1m]) / rate(payload_tracker_upload_time_by_service_elapsed_count[1m])) by (service_name)",
-                "legendFormat": "{{service_name}}",
+                "expr": "sum(rate(payload_tracker_upload_time_by_service_elapsed_sum[1m]) / rate(payload_tracker_upload_time_by_service_elapsed_count[1m])) by (service_name, source_name)",
+                "legendFormat": "{{service_name}} (source: {{source_name}})",
                 "refId": "B"
               }
             ],
