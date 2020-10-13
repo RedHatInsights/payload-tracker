@@ -145,7 +145,11 @@ async def evaluate_status_metrics(**kwargs):
         if request_id in payload_statuses:
             if service in payload_statuses[request_id]['services'].keys():
                 if (status, source) in payload_statuses[request_id]['services'][service].keys():
-                    return False
+                    dates = [v for k, v in payload_statuses[request_id]['services'][service].items() if k == (status, source)]
+                    if date in dates:
+                        return False
+                    else:
+                        payload_statuses[request_id]['services'][service].append(Triple(status, source, date))
                 else:
                     payload_statuses[request_id]['services'][service].append(Triple(status, source, date))
             else:
