@@ -18,6 +18,7 @@ API_PORT = os.environ.get('API_PORT', 8080)
 PROMETHEUS_PORT = os.environ.get('PROMETHEUS_PORT', 8000)
 SUCCESS_MSG = 'Liveness checks passed'
 FAILED_MSG = 'Liveness checks failed'
+DB_TIMEOUT_SECONDS = 5
 TIMEOUT_SECONDS = 30
 KAFKA_RETRY_MAX = 3
 KAFKA_COUNT_TIMEOUT = 5
@@ -72,8 +73,10 @@ async def search(*args, **kwargs):
     logger.debug('Checking database connection...')
     for count in range(0, DB_RETRY_MAX):
         try:
-            conn = await db.bind.acquire()
+            # supplying a timeout leverages `ensure_future` instead of `await` in asyncpg
+            conn = await db.bind.acquire(timeout=(DB_TIMEOUT_SECONDS * 1000))
             await conn.release()
+            break
         except:
             if count == DB_RETRY_MAX - 1:
                 logger.error(f'{FAILED_MSG} with error: {traceback.format_exc()}')
