@@ -38,6 +38,9 @@ UPLOAD_TIME_ELAPSED = Summary('payload_tracker_upload_time_elapsed',
 UPLOAD_TIME_ELAPSED_BY_SERVICE = Summary('payload_tracker_upload_time_by_service_elapsed',
                                          'Tracks the elapsed upload time by service',
                                          ['service_name', 'source_name'])
+ERROR_TRACING = Counter('payload_tracker_error_tracing',
+                        'Tracks errors in async logic',
+                        ['error'])
 
 PAYLOAD_TRACKER_SERVICE_VERSION = Info(
     'payload_tracker_service_version',
@@ -187,7 +190,8 @@ async def process_payload_status(json_msgs):
 
         try:
             data = json.loads(msg.value)
-        except Exception:
+        except Exception as err:
+            ERROR_TRACING.labels(error=err).inc()
             logger.exception("process_payload_status(): unable to decode msg as json: %s", msg.value)
             continue
 
@@ -250,7 +254,8 @@ async def process_payload_status(json_msgs):
                             dump = created_payload.dump()
                             sanitized_payload_status['payload_id'] = dump['id']
                             logger.debug(f"DB Transaction {created_payload} - {dump}")
-                    except:
+                    except Exception as err:
+                        ERROR_TRACING.labels(error=err).inc()
                         logger.error(f'Failed to insert Payload into Table -- will retry update')
                         payload_dump = await get_payload()
                         if payload_dump:
@@ -260,8 +265,9 @@ async def process_payload_status(json_msgs):
                                 await Payload.update.values(**values).where(
                                     Payload.request_id == sanitized_payload['request_id']
                                 ).gino.status()
-            except:
-                logger.error(f"Failed to parse message with Error: {traceback.format_exc()}")
+            except Exception as err:
+                ERROR_TRACING.labels(error=err).inc()
+                logger.error(f"Failed to parse message for {sanitized_payload["request_id"]}: {traceback.format_exc()}")
                 continue
 
             # check if service/source is not in table
@@ -281,8 +287,9 @@ async def process_payload_status(json_msgs):
                         else:
                             cached_key = [k for k, v in current_column_items.items() if v == data[column_name]][0]
                             sanitized_payload_status[f'{column_name}_id'] = cached_key
-                    except:
-                        logger.error(f'Failed to add {column_name} with Error: {traceback.format_exc()}')
+                    except Exception as err:
+                        ERROR_TRACING.labels(error=err).inc()
+                        logger.error(f'Failed to add {column_name} for {sanitized_payload["request_id"]}: {traceback.format_exc()}')
                         continue
 
             if 'status_msg' in data:
@@ -291,9 +298,10 @@ async def process_payload_status(json_msgs):
             if 'date' in data:
                 try:
                     sanitized_payload_status['date'] = default_tzinfo(parser.parse(data['date']), tzutc()).astimezone(tzutc())
-                except:
+                except Exception as err:
+                    ERROR_TRACING.labels(error=err).inc()
                     the_error = traceback.format_exc()
-                    logger.error(f"Error parsing date: {the_error}")
+                    logger.error(f"Error parsing date for {sanitized_payload["request_id"]}: {the_error}")
                     continue
 
             # Increment Prometheus Metrics
@@ -328,14 +336,16 @@ async def process_payload_status(json_msgs):
             try:
                 await insert_status(sanitized_payload_status)
             except Exception as err:
-                logger.error(f'Failed to insert PayloadStatus with ERROR: {err}')
+                ERROR_TRACING.labels(error=err).inc()
+                logger.error(f'Failed to insert PayloadStatus for {sanitized_payload["request_id"]}: {err}')
                 # First, we assume there is no partition. If there is a further error, simply try reinsertion
                 try:
                     date = sanitized_payload_status['date']
                     await db.bind.scalar(f'SELECT create_partition(\'{date}\'::DATE, \'{date}\'::DATE + INTERVAL \'1 DAY\');')
                     await insert_status(sanitized_payload_status)
                 except Exception as err:
-                    logger.error(f'Failed to insert PayloadStatus with ERROR: {err}')
+                    ERROR_TRACING.labels(error=err).inc()
+                    logger.error(f'Failed to insert PayloadStatus for {sanitized_payload["request_id"]}: {err}')
                     await insert_status(sanitized_payload_status)
         else:
             continue
