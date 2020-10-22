@@ -74,8 +74,8 @@ async def search(*args, **kwargs):
     for count in range(0, DB_RETRY_MAX):
         try:
             # supplying a timeout leverages `ensure_future` instead of `await` in asyncpg
-            conn = await db.bind.acquire(timeout=(DB_TIMEOUT_SECONDS * 1000))
-            await conn.release()
+            if not await db.has_connection(timeout=(DB_TIMEOUT_SECONDS * 1000)):
+                raise
             break
         except:
             if count == DB_RETRY_MAX - 1:

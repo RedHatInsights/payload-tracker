@@ -1,6 +1,6 @@
 import config
-from gino import Gino
-db = Gino()
+from shielded_db import ShieldedDB
+db = ShieldedDB()
 
 
 async def init_db():

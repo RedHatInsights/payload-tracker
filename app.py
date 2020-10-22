@@ -180,10 +180,73 @@ async def evaluate_status_metrics(**kwargs):
 
 
 async def process_payload_status(json_msgs):
+
+     # define method for retrieving payload
+    async def get_payload():
+        logger.error('Get payload')
+        payload = await Payload.query.where(Payload.request_id == data['request_id']).gino.all()
+        logger.error(payload)
+        return payload[0].dump() if len(payload) > 0 else None
+
+    # define callback for inserting payload
+    def payload_callback(created_value):
+        dump = created_value.dump()
+        global payload_id
+        payload_id = dump['id']
+        logger.debug(f"DB Transaction {created_value} - {dump}")
+
+    # define payload insertion retry logic
+    async def payload_retry(**kwargs):
+        logger.error(f'Failed to insert Payload into Table -- will retry update')
+        payload_dump = await get_payload()
+        if payload_dump:
+            global payload_id
+            payload_id = payload_dump['id']
+            values = {k: v for k, v in sanitized_payload.items() if k not in payload_dump or payload_dump[k] is None}
+            if len(values) > 0:
+                await Payload.update.values(**values).where(
+                    Payload.request_id == sanitized_payload['request_id']
+                ).gino.status()
+
+    # define callback for inserting statuses/services/sources
+    def transaction_callback(created_value):
+        dump = created_value.dump()
+        cache.set_value(table_name, {dump['id']: dump['name']})
+        logger.debug(f'DB Transaction {created_value} - {dump}')
+
+    # define callback for inserting payload statuses
+    async def status_callback(created_value):
+        dump = created_value.dump()
+        logger.debug(f"DB Transaction {created_value} - {dump}")
+        dump['date'] = str(dump['date'])
+        dump['created_at'] = str(dump['created_at'])
+        # change id values back to strings for sockets
+        dump['request_id'] = data['request_id']
+        del dump['payload_id']
+        for column in ['service', 'source', 'status']:
+            if column in data:
+                dump[column] = data[column]
+                del dump[f'{column}_id']
+        if ENABLE_SOCKETS:
+            await sio.emit('payload', dump)
+
+    # define retry logic for inserting payload statuses
+    async def status_retry(**kwargs):
+        (data_to_insert, callback) = tuple(kwargs)
+        # First, we assume there is no partition. If there is a further error, simply try reinsertion
+        try:
+            date = sanitized_payload_status['date']
+            await db.bind.scalar(f'SELECT create_partition(\'{date}\'::DATE, \'{date}\'::DATE + INTERVAL \'1 DAY\');')
+            await db.insert(data_to_insert, callback)
+        except Exception as err:
+            logger.error(f'Failed to insert PayloadStatus with ERROR: {err}')
+            await insert_status(sanitized_payload_status)
+
     logger.debug(f"Processing messages: {json_msgs}")
     for msg in json_msgs:
         logger.debug(f"Processing Payload Message {msg.value}")
         data = None
+        payload_id = None
 
         try:
             data = json.loads(msg.value)
@@ -227,57 +290,32 @@ async def process_payload_status(json_msgs):
 
             sanitized_payload_status = {}
 
-            # define method for retrieving values
-            async def get_payload():
-                payload = await Payload.query.where(Payload.request_id == data['request_id']).gino.all()
-                return payload[0].dump() if len(payload) > 0 else None
             # check if not request_id in Payloads Table and update columns
             try:
+                logger.error(f'payload_id: {payload_id}')
                 payload_dump = await get_payload()
                 logger.info(f"Sanitized Payload for DB {sanitized_payload}")
                 if payload_dump:
                     sanitized_payload_status['payload_id'] = payload_dump['id']
+                    payload_id = payload_dump['id']
                     values = {k: v for k, v in sanitized_payload.items() if k not in payload_dump or payload_dump[k] is None}
                     if len(values) > 0:
                         await Payload.update.values(**values).where(
                             Payload.request_id == sanitized_payload['request_id']
                         ).gino.status()
                 else:
-                    try:
-                        async with db.transaction():
-                            payload_to_create = Payload(**sanitized_payload)
-                            created_payload = await payload_to_create.create()
-                            dump = created_payload.dump()
-                            sanitized_payload_status['payload_id'] = dump['id']
-                            logger.debug(f"DB Transaction {created_payload} - {dump}")
-                    except:
-                        logger.error(f'Failed to insert Payload into Table -- will retry update')
-                        payload_dump = await get_payload()
-                        if payload_dump:
-                            sanitized_payload_status['payload_id'] = payload_dump['id']
-                            values = {k: v for k, v in sanitized_payload.items() if k not in payload_dump or payload_dump[k] is None}
-                            if len(values) > 0:
-                                await Payload.update.values(**values).where(
-                                    Payload.request_id == sanitized_payload['request_id']
-                                ).gino.status()
+                    await db.push(Payload(**sanitized_payload), payload_callback, payload_retry)
             except:
                 logger.error(f"Failed to parse message with Error: {traceback.format_exc()}")
                 continue
 
-            # check if service/source is not in table
+            # check if service/source/status is not in table
             for column_name, table_name in zip(['service', 'source', 'status'], ['services', 'sources', 'statuses']):
                 current_column_items = cache.get_value(table_name)
                 if column_name in data:
                     try:
                         if not data[column_name] in current_column_items.values():
-                            async with db.transaction():
-                                payload = {'name': data[column_name]}
-                                to_create = tables[table_name](**payload)
-                                created_value = await to_create.create()
-                                dump = created_value.dump()
-                                cache.set_value(table_name, {dump['id']: dump['name']})
-                                logger.debug(f'DB Transaction {payload} - {dump}')
-                                sanitized_payload_status[f'{column_name}_id'] = dump['id']
+                            await db.push(tables[table_name](**{'name': data[column_name]}), transaction_callback)
                         else:
                             cached_key = [k for k, v in current_column_items.items() if v == data[column_name]][0]
                             sanitized_payload_status[f'{column_name}_id'] = cached_key
@@ -306,37 +344,32 @@ async def process_payload_status(json_msgs):
                     'source': None if 'source' not in data else data['source']
                 })
 
+            # check if we have payload_id, if not wait for it
+            while not payload_id:
+                await asyncio.sleep(0.1)
+
+            # check if we have service, status, and source, if not wait for them
+            column_names = ['service', 'source', 'status']
+            table_names = ['services', 'sources', 'statuses']
+            while len(column_names) > 0 and len(table_names) > 0:
+                for column_name, table_name in zip(column_names, table_names):
+                    current_column_items = cache.get_value(table_name)
+                    if column_name in data:
+                        if not data[column_name] in current_column_items.values():
+                            await asyncio.sleep(0.1)
+                        else:
+                            column_names = [c for c in column_names if c != column_name]
+                            table_names = [t for t in table_names if t != table_name]
+                            cached_key = [k for k, v in current_column_items.items() if v == data[column_name]][0]
+                            sanitized_payload_status[f'{column_name}_id'] = cached_key
+                    else:
+                        column_names = [c for c in column_names if c != column_name]
+                        table_names = [t for t in table_names if t != table_name]
+
+            # Insert payload statuses
             logger.info(f"Sanitized Payload Status for DB {sanitized_payload_status}")
-            # insert into database
-            async def insert_status(sanitized_payload_status):
-                async with db.transaction():
-                    payload_status_to_create = PayloadStatus(**sanitized_payload_status)
-                    created_payload_status = await payload_status_to_create.create()
-                    dump = created_payload_status.dump()
-                    logger.debug(f"DB Transaction {created_payload_status} - {dump}")
-                    dump['date'] = str(dump['date'])
-                    dump['created_at'] = str(dump['created_at'])
-                    # change id values back to strings for sockets
-                    dump['request_id'] = data['request_id']
-                    del dump['payload_id']
-                    for column in ['service', 'source', 'status']:
-                        if column in data:
-                            dump[column] = data[column]
-                            del dump[f'{column}_id']
-                    if ENABLE_SOCKETS:
-                        await sio.emit('payload', dump)
-            try:
-                await insert_status(sanitized_payload_status)
-            except Exception as err:
-                logger.error(f'Failed to insert PayloadStatus with ERROR: {err}')
-                # First, we assume there is no partition. If there is a further error, simply try reinsertion
-                try:
-                    date = sanitized_payload_status['date']
-                    await db.bind.scalar(f'SELECT create_partition(\'{date}\'::DATE, \'{date}\'::DATE + INTERVAL \'1 DAY\');')
-                    await insert_status(sanitized_payload_status)
-                except Exception as err:
-                    logger.error(f'Failed to insert PayloadStatus with ERROR: {err}')
-                    await insert_status(sanitized_payload_status)
+            await db.push(PayloadStatus(
+                **{**sanitized_payload_status, 'payload_id': payload_id}), status_callback, status_retry)
         else:
             continue
 
@@ -398,6 +431,7 @@ if __name__ == "__main__":
         # setup http app and db
         logger.info("Setting up Database")
         db = loop.run_until_complete(setup_db())['db']
+        loop.create_task(db.consume())
 
         # update current services and sources
         logger.info("Adding current services and sources to memory")
