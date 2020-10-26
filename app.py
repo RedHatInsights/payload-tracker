@@ -7,7 +7,6 @@ from datetime import timedelta
 import traceback
 import json
 
-from prometheus_client import start_http_server, Info, Counter, Summary
 from bounded_executor import BoundedExecutor
 import asyncio
 import connexion
@@ -15,6 +14,9 @@ import socketio
 from connexion.resolver import RestyResolver
 
 from db import init_db, db, Payload, PayloadStatus, tables
+from prometheus import (
+    start_prometheus, prometheus_middleware, SERVICE_STATUS_COUNTER,
+    UPLOAD_TIME_ELAPSED_BY_SERVICE, MSG_COUNT_BY_PROCESSING_STATUS, API_RESPONSES_COUNT_BY_TYPE)
 from utils import Triple, TripleSet
 from cache import cache
 import tracker_logging
@@ -26,42 +28,7 @@ API_PORT = os.environ.get('API_PORT', 8080)
 ENABLE_SOCKETS = os.environ.get('ENABLE_SOCKETS', "").lower() == "true"
 VALIDATE_REQUEST_ID = os.environ.get('VALIDATE_REQUEST_ID', "true").lower() == "true"
 VALIDATE_REQUEST_ID_LENGTH = os.environ.get('VALIDATE_REQUEST_ID_LENGTH', 32)
-
-# Prometheus configuration
 DISABLE_PROMETHEUS = True if os.environ.get('DISABLE_PROMETHEUS') == "True" else False
-PROMETHEUS_PORT = os.environ.get('PROMETHEUS_PORT', 8000)
-SERVICE_STATUS_COUNTER = Counter('payload_tracker_service_status_counter',
-                                 'Counters for services and their various statuses',
-                                 ['service_name', 'status', 'source_name'])
-UPLOAD_TIME_ELAPSED = Summary('payload_tracker_upload_time_elapsed',
-                              'Tracks the total elapsed upload time')
-UPLOAD_TIME_ELAPSED_BY_SERVICE = Summary('payload_tracker_upload_time_by_service_elapsed',
-                                         'Tracks the elapsed upload time by service',
-                                         ['service_name', 'source_name'])
-
-PAYLOAD_TRACKER_SERVICE_VERSION = Info(
-    'payload_tracker_service_version',
-    'Release and versioning information'
-)
-
-BUILD_NAME = os.getenv('OPENSHIFT_BUILD_NAME', 'dev')
-BUILD_ID = os.getenv('OPENSHIFT_BUILD_COMMIT', 'dev')
-BUILD_REF = os.getenv('OPENSHIFT_BUILD_REFERENCE', '')
-BUILD_STABLE = "-stable" if BUILD_REF == "stable" else ""
-if BUILD_ID and BUILD_ID != 'dev':
-    BUILD_URL = ''.join(["https://console.insights-dev.openshift.com/console/",
-                 "project/buildfactory/browse/builds/payload-tracker",
-                 BUILD_STABLE, "/", BUILD_NAME, "?tab=logs"])
-    COMMIT_URL = ("https://github.com/RedHatInsights/payload-tracker/"
-                 "commit/" + BUILD_ID)
-else:
-    BUILD_URL = "dev"
-    COMMIT_URL = "dev"
-PAYLOAD_TRACKER_SERVICE_VERSION.info({'build_name': BUILD_NAME,
-                              'build_commit': BUILD_ID,
-                              'build_ref': BUILD_REF,
-                              'build_url': BUILD_URL,
-                              'commit_url': COMMIT_URL})
 
 # Setup logging
 logger = tracker_logging.initialize_logging()
@@ -208,6 +175,7 @@ async def process_payload_status(json_msgs):
             if data['request_id'] == '-1':
                 logger.debug(f"Payload {data} has request_id -1.")
                 continue
+
             if VALIDATE_REQUEST_ID and (len(data['request_id']) > VALIDATE_REQUEST_ID_LENGTH):
                 logger.debug(f"Payload {data} has invalid request_id length.")
                 continue
@@ -219,6 +187,7 @@ async def process_payload_status(json_msgs):
                 data['source'] = data['source'].lower()
 
             logger.debug("Payload message has expected keys. Begin sanitizing")
+            MSG_COUNT_BY_PROCESSING_STATUS.labels(status="consumed").inc()
             # sanitize the payload status
             sanitized_payload = {'request_id': data['request_id']}
             for key in ['inventory_id', 'system_id', 'account']:
@@ -262,28 +231,33 @@ async def process_payload_status(json_msgs):
                                 ).gino.status()
             except:
                 logger.error(f"Failed to parse message with Error: {traceback.format_exc()}")
+                MSG_COUNT_BY_PROCESSING_STATUS.labels(status="error").inc()
                 continue
 
-            # check if service/source is not in table
-            for column_name, table_name in zip(['service', 'source', 'status'], ['services', 'sources', 'statuses']):
-                current_column_items = cache.get_value(table_name)
-                if column_name in data:
-                    try:
-                        if not data[column_name] in current_column_items.values():
-                            async with db.transaction():
-                                payload = {'name': data[column_name]}
-                                to_create = tables[table_name](**payload)
-                                created_value = await to_create.create()
-                                dump = created_value.dump()
-                                cache.set_value(table_name, {dump['id']: dump['name']})
-                                logger.debug(f'DB Transaction {payload} - {dump}')
-                                sanitized_payload_status[f'{column_name}_id'] = dump['id']
-                        else:
-                            cached_key = [k for k, v in current_column_items.items() if v == data[column_name]][0]
-                            sanitized_payload_status[f'{column_name}_id'] = cached_key
-                    except:
-                        logger.error(f'Failed to add {column_name} with Error: {traceback.format_exc()}')
-                        continue
+            try:
+                # check if service/source is not in table
+                for column_name, table_name in zip(['service', 'source', 'status'], ['services', 'sources', 'statuses']):
+                    current_column_items = cache.get_value(table_name)
+                    if column_name in data:
+                        try:
+                            if not data[column_name] in current_column_items.values():
+                                async with db.transaction():
+                                    payload = {'name': data[column_name]}
+                                    to_create = tables[table_name](**payload)
+                                    created_value = await to_create.create()
+                                    dump = created_value.dump()
+                                    cache.set_value(table_name, {dump['id']: dump['name']})
+                                    logger.debug(f'DB Transaction {payload} - {dump}')
+                                    sanitized_payload_status[f'{column_name}_id'] = dump['id']
+                            else:
+                                cached_key = [k for k, v in current_column_items.items() if v == data[column_name]][0]
+                                sanitized_payload_status[f'{column_name}_id'] = cached_key
+                        except Exception as err:
+                            raise err
+            except:
+                logger.error(f'Failed to add {column_name} with Error: {traceback.format_exc()}')
+                MSG_COUNT_BY_PROCESSING_STATUS.labels(status="error").inc()
+                continue
 
             if 'status_msg' in data:
                 sanitized_payload_status['status_msg'] = data['status_msg']
@@ -294,6 +268,7 @@ async def process_payload_status(json_msgs):
                 except:
                     the_error = traceback.format_exc()
                     logger.error(f"Error parsing date: {the_error}")
+                    MSG_COUNT_BY_PROCESSING_STATUS.labels(status="error").inc()
                     continue
 
             # Increment Prometheus Metrics
@@ -336,7 +311,13 @@ async def process_payload_status(json_msgs):
                     await insert_status(sanitized_payload_status)
                 except Exception as err:
                     logger.error(f'Failed to insert PayloadStatus with ERROR: {err}')
-                    await insert_status(sanitized_payload_status)
+                    try:
+                        await insert_status(sanitized_payload_status)
+                    except Exception as err:
+                        logger.error(f'Failed to insert PayloadStatus with ERROR: {err}')
+                        MSG_COUNT_BY_PROCESSING_STATUS.labels(status="error").inc()
+                        continue
+            MSG_COUNT_BY_PROCESSING_STATUS.labels(status="success").inc()
         else:
             continue
 
@@ -357,7 +338,8 @@ async def setup_db():
 
 
 def setup_api():
-    app = connexion.AioHttpApp(__name__, specification_dir='swagger/')
+    app = connexion.AioHttpApp(
+        __name__, specification_dir='swagger/', server_args={'middlewares': [prometheus_middleware]})
     app.add_api('api.spec.yaml', resolver=RestyResolver('api'))
     return app
 
@@ -368,10 +350,6 @@ async def update_current_services_and_sources(db):
         cache.set_value(table, dict(res))
 
 
-def start_prometheus():
-    start_http_server(PROMETHEUS_PORT)
-
-
 if __name__ == "__main__":
     try:
         logger.info('Starting Payload Tracker Service')
@@ -380,7 +358,6 @@ if __name__ == "__main__":
         logger.info("Using LOG_LEVEL: %s", LOG_LEVEL)
         logger.info("Using THREAD_POOL_SIZE: %s", THREAD_POOL_SIZE)
         logger.info("Using DISABLE_PROMETHEUS: %s", DISABLE_PROMETHEUS)
-        logger.info("Using PROMETHEUS_PORT: %s", PROMETHEUS_PORT)
 
         # setup the connexion app
         logger.info("Setting up REST API")
