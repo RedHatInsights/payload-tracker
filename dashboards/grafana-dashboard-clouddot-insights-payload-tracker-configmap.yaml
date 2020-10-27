@@ -18,8 +18,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "id": 4,
-      "iteration": 1603728089440,
+      "iteration": 1603809278636,
       "links": [
         {
           "icon": "external link",
@@ -112,7 +111,7 @@ data:
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "7.2.2",
+          "pluginVersion": "7.2.1",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -173,7 +172,7 @@ data:
           "bars": false,
           "dashLength": 10,
           "dashes": false,
-          "datasource": null,
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "custom": {}
@@ -208,7 +207,7 @@ data:
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "7.2.2",
+          "pluginVersion": "7.2.1",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -266,7 +265,7 @@ data:
           }
         },
         {
-          "datasource": null,
+          "datasource": "$datasource",
           "description": "Uses time range interval to find average",
           "fieldConfig": {
             "defaults": {
@@ -326,7 +325,7 @@ data:
             },
             "textMode": "auto"
           },
-          "pluginVersion": "7.2.2",
+          "pluginVersion": "7.2.1",
           "targets": [
             {
               "expr": "avg_over_time(payload_tracker_api_response_count_total[$__interval])",
@@ -341,18 +340,11 @@ data:
           "type": "stat"
         },
         {
-          "datasource": null,
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "custom": {},
               "mappings": [],
-              "targets": [
-                {
-                  "expr": "avg(avg_over_time(up{service=\"payload-tracker\"}[24h]))",
-                  "legendFormat": "{{pod}}",
-                  "refId": "A"
-                }
-              ],
               "thresholds": {
                 "mode": "percentage",
                 "steps": [
@@ -365,7 +357,8 @@ data:
                     "value": 98
                   }
                 ]
-              }
+              },
+              "unit": "percentunit"
             },
             "overrides": []
           },
@@ -387,14 +380,21 @@ data:
             "showThresholdLabels": false,
             "showThresholdMarkers": true
           },
-          "pluginVersion": "7.2.2",
+          "pluginVersion": "7.2.1",
+          "targets": [
+            {
+              "expr": "avg(avg_over_time(up{service=\"payload-tracker\"}[24h]))",
+              "legendFormat": "{{pod}}",
+              "refId": "A"
+            }
+          ],
           "timeFrom": null,
           "timeShift": null,
           "title": "Pod Up (98%)",
           "type": "gauge"
         },
         {
-          "datasource": null,
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "custom": {},
@@ -434,7 +434,7 @@ data:
             "showThresholdLabels": false,
             "showThresholdMarkers": true
           },
-          "pluginVersion": "7.2.2",
+          "pluginVersion": "7.2.1",
           "repeat": null,
           "targets": [
             {
@@ -450,18 +450,11 @@ data:
           "type": "gauge"
         },
         {
-          "datasource": null,
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "custom": {},
               "mappings": [],
-              "targets": [
-                {
-                  "expr": "sum(payload_tracker_api_response_count_total{status!=\"500\"}) / sum(payload_tracker_api_response_count_total)",
-                  "legendFormat": "{{pod}}",
-                  "refId": "A"
-                }
-              ],
               "thresholds": {
                 "mode": "percentage",
                 "steps": [
@@ -497,12 +490,11 @@ data:
             "showThresholdLabels": false,
             "showThresholdMarkers": true
           },
-          "pluginVersion": "7.2.2",
+          "pluginVersion": "7.2.1",
           "targets": [
             {
               "expr": "sum(payload_tracker_api_response_count_total{status!=\"500\"}) / sum(payload_tracker_api_response_count_total)",
-              "interval": "",
-              "legendFormat": "",
+              "legendFormat": "{{pod}}",
               "refId": "A"
             }
           ],
@@ -554,7 +546,7 @@ data:
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "7.2.2",
+          "pluginVersion": "7.2.1",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -651,7 +643,7 @@ data:
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "7.2.2",
+          "pluginVersion": "7.2.1",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -713,7 +705,7 @@ data:
           }
         }
       ],
-      "refresh": "5s",
+      "refresh": "1m",
       "schemaVersion": 26,
       "style": "dark",
       "tags": [],
@@ -721,9 +713,8 @@ data:
         "list": [
           {
             "current": {
-              "selected": false,
-              "text": "Prometheus",
-              "value": "Prometheus"
+              "text": "crc-stg-01-prometheus",
+              "value": "crc-stg-01-prometheus"
             },
             "hide": 0,
             "includeAll": false,
@@ -772,7 +763,7 @@ data:
       "timezone": "",
       "title": "Payload Tracker",
       "uid": "eGSUe-SZk",
-      "version": 21
+      "version": 2
     }
 kind: ConfigMap
 metadata:
