@@ -493,7 +493,7 @@ data:
           "pluginVersion": "7.2.1",
           "targets": [
             {
-              "expr": "sum(payload_tracker_api_response_count_total{status!=\"500\"}) / sum(payload_tracker_api_response_count_total)",
+              "expr": "sum(payload_tracker_api_response_count_total{status!~\"5.*\"}) / sum(payload_tracker_api_response_count_total)",
               "legendFormat": "{{pod}}",
               "refId": "A"
             }
