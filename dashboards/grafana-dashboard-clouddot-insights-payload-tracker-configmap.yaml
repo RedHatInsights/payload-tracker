@@ -18,7 +18,7 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "iteration": 1603809278636,
+      "iteration": 1603909224301,
       "links": [
         {
           "icon": "external link",
@@ -493,8 +493,9 @@ data:
           "pluginVersion": "7.2.1",
           "targets": [
             {
-              "expr": "sum(payload_tracker_api_response_count_total{status!~\"5.*\"}) / sum(payload_tracker_api_response_count_total)",
-              "legendFormat": "{{pod}}",
+              "expr": "sum(sum_over_time(payload_tracker_api_response_count_total{status!~\"5.*\"}[$__interval])) / sum(sum_over_time(payload_tracker_api_response_count_total[$__interval]))",
+              "interval": "",
+              "legendFormat": "",
               "refId": "A"
             }
           ],
@@ -713,8 +714,9 @@ data:
         "list": [
           {
             "current": {
-              "text": "crc-stg-01-prometheus",
-              "value": "crc-stg-01-prometheus"
+              "selected": true,
+              "text": "crcp01ue1-prometheus",
+              "value": "crcp01ue1-prometheus"
             },
             "hide": 0,
             "includeAll": false,
