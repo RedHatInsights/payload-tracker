@@ -15,8 +15,7 @@ GROUP_ID = os.environ.get('GROUP_ID', 'payload_tracker')
 class Consumer(AIOKafkaConsumer):
 
     def __init__(self, loop):
-        super().__init__(TOPIC, bootstrap_servers=BOOTSTRAP_SERVERS,
-            loop=loop, group_id=GROUP_ID, enable_auto_commit=False)
+        super().__init__(TOPIC, bootstrap_servers=BOOTSTRAP_SERVERS, loop=loop, group_id=GROUP_ID)
         self.client = ReconnectingClient(self, 'consumer')
 
     async def teardown(self):
