@@ -19,6 +19,11 @@ class Consumer(AIOKafkaConsumer):
             loop=loop, group_id=GROUP_ID, enable_auto_commit=False)
         self.client = ReconnectingClient(self, 'consumer')
 
+    @property
+    async def partition_lags(self):
+        return {p: 0 if not self.highwater(p) else (
+            self.highwater(p) - await self.position(p)) for p in self.assignment()}
+
     async def teardown(self):
         try:
             logger.info('Disconnecting client from Kafka...')

@@ -324,15 +324,20 @@ async def process_payload_status(json_msgs):
 
 
 async def consume(consumer):
+    async def batch_size():
+        return sum((await consumer.partition_lags).values()) * 0.25 + KAFKA_BATCH_SIZE
+
     batch = []
+    max_size = await batch_size()
     async for msg in consumer:
         batch.append(msg)
-        if len(batch) >= KAFKA_BATCH_SIZE:
+        if len(batch) >= max_size:
             logger.debug("Received messages: %s", batch)
             try:
                 await process_payload_status(batch)
                 await consumer.commit()
                 batch = []
+                max_size = await batch_size()
             except:
                 continue
 
