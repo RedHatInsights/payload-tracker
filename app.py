@@ -29,6 +29,7 @@ ENABLE_SOCKETS = os.environ.get('ENABLE_SOCKETS', "").lower() == "true"
 VALIDATE_REQUEST_ID = os.environ.get('VALIDATE_REQUEST_ID', "true").lower() == "true"
 VALIDATE_REQUEST_ID_LENGTH = os.environ.get('VALIDATE_REQUEST_ID_LENGTH', 32)
 DISABLE_PROMETHEUS = True if os.environ.get('DISABLE_PROMETHEUS') == "True" else False
+KAFKA_BATCH_SIZE = int(os.environ.get('KAFKA_BATCH_SIZE', 100))
 
 # Setup logging
 logger = tracker_logging.initialize_logging()
@@ -322,12 +323,18 @@ async def process_payload_status(json_msgs):
             continue
 
 
-async def consume(client):
-    data = await client.getmany()
-    for tp, msgs in data.items():
-        logger.debug("Received messages: %s", msgs)
-        loop.create_task(process_payload_status(msgs))
-    await asyncio.sleep(0.1)
+async def consume(consumer):
+    batch = []
+    async for msg in consumer:
+        batch.append(msg)
+        if len(batch) >= KAFKA_BATCH_SIZE:
+            logger.debug("Received messages: %s", batch)
+            try:
+                await process_payload_status(batch)
+                await consumer.commit()
+                batch = []
+            except:
+                continue
 
 
 async def setup_db():
@@ -368,17 +375,17 @@ if __name__ == "__main__":
             logger.info('Starting Payload Tracker Prometheus Server')
             start_prometheus()
 
-        # add consumer callbacks
-        logger.info('Starting Kafka consumer for Payload status messages.')
-        loop.create_task(consumer.get_client().get_callback(consume)())
-
         # setup http app and db
         logger.info("Setting up Database")
         db = loop.run_until_complete(setup_db())['db']
 
         # update current services and sources
         logger.info("Adding current services and sources to memory")
-        loop.create_task(update_current_services_and_sources(db))
+        loop.run_until_complete(update_current_services_and_sources(db))
+
+        # start consumer and add callbacks
+        logger.info('Starting Kafka consumer for Payload status messages.')
+        loop.create_task(consumer.run(consume))
 
         # setup sockets
         if ENABLE_SOCKETS:
