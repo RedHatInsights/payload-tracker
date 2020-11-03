@@ -10,6 +10,7 @@ import responses
 import settings
 from db import db
 from kafka_consumer import consumer
+from cache import redis_client
 
 logger = logging.getLogger(settings.APP_NAME)
 ENABLE_SOCKETS = os.environ.get('ENABLE_SOCKETS', "").lower() == "true"
@@ -24,6 +25,8 @@ KAFKA_RETRY_MAX = 3
 KAFKA_COUNT_TIMEOUT = 5
 DB_RETRY_MAX = 3
 DB_COUNT_TIMEOUT = 5
+REDIS_RETRY_MAX = 3
+REDIS_COUNT_TIMEOUT = 5
 MAX_ENDPOINT_CHECK_RETRY = 3
 ENDPOINT_CHECK_TIMEOUT = 5
 OPTIONS={'page_size': 1}
@@ -89,6 +92,18 @@ async def search(*args, **kwargs):
         await check_kafka_connection(asyncio.get_event_loop())
     except Exception as err:
         return responses.failed(f'{FAILED_MSG} with error: {err}')
+
+    # check redis connection
+    logger.debug('Checking redis connection...')
+    for count in range(REDIS_RETRY_MAX):
+        try:
+            redis_client.info()
+        except Exception as err:
+            if count == REDIS_RETRY_MAX - 1:
+                return responses.failed(f'{FAILED_MSG} with error: {err}')
+            await asyncio.sleep(REDIS_COUNT_TIMEOUT)
+        else:
+            break
 
     # check responsiveness of /payloads
     logger.debug('Checking connection to /v1/payloads...')

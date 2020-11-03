@@ -1,6 +1,6 @@
 from db import Payload, PayloadStatus, db
 from utils import dump, Triple, TripleSet
-from cache import cache
+from cache import redis_client
 from sqlalchemy import inspect, cast, TIMESTAMP
 from sqlalchemy.orm import Bundle
 from dateutil import parser
@@ -149,7 +149,7 @@ async def get(request_id, *args, **kwargs):
         for status in payload_statuses_dump:
             for column_name, table_name in zip(['service', 'source', 'status'], ['services', 'sources', 'statuses']):
                 if f'{column_name}_id' in status:
-                    status[column_name] = cache.get_value(table_name)[status[f'{column_name}_id']]
+                    status[column_name] = redis_client.hgetall(table_name, key_is_int=True)[status[f'{column_name}_id']]
                     del status[f'{column_name}_id']
 
         durations = _get_durations(payload_statuses_dump)

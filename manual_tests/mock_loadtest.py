@@ -6,14 +6,10 @@ from random import randint
 from confluent_kafka import Producer
 
 
-sources = ['compliance-sidekiq', 'inventory', 'insights-client', 'compliance-consumer']
-
-
 def generatePayloads():
     request_id = str(uuid.uuid4().hex)
     inventory_id = str(uuid.uuid4().hex)
     system_id = str(uuid.uuid4().hex)
-    source = sources[randint(0, len(sources) - 1)]
     account = str(randint(pow(10, 5), pow(10,6) - 1))
     print(f'request_id: {request_id}')
     return [
@@ -32,13 +28,13 @@ def generatePayloads():
         {
             'service': 'ingress',
             'request_id': request_id,
-            'status': 'validated',
+            'status': 'success',
             'account': account
         },
         {
             'service': 'advisor-pup',
             'request_id': request_id,
-            'status': 'processing',
+            'status': 'received',
             'inventory_id': inventory_id
         },
         {
@@ -57,32 +53,35 @@ def generatePayloads():
             'request_id': request_id,
             'status': 'received',
             'inventory_id': inventory_id,
-            'source': source
+            'source': 'inventory'
+        },
+        {
+            'service': 'insights-advisor-service',
+            'request_id': request_id,
+            'status': 'received',
+            'inventory_id': inventory_id,
+            'source': 'insights-client'
         },
         {
             'service': 'insights-advisor-service',
             'request_id': request_id,
             'status': 'processing',
-            'status_msg': 'analyzing archive',
-            'system_id': system_id
+            'inventory_id': inventory_id,
+            'source': 'insights-client'
         },
         {
             'service': 'insights-advisor-service',
             'request_id': request_id,
-            'status': 'processing',
-            'status_msg': 'generating reports'
+            'status': 'success',
+            'inventory_id': inventory_id,
+            'source': 'inventory'
         },
         {
             'service': 'insights-advisor-service',
             'request_id': request_id,
-            'status': 'processing',
-            'status_msg': 'performing db operations',
-            'inventory_id': inventory_id
-        },
-        {
-            'service': 'insights-advisor-service',
-            'request_id': request_id,
-            'status': 'success'
+            'status': 'success',
+            'inventory_id': inventory_id,
+            'source': 'insights-client'
         },
     ]
 
