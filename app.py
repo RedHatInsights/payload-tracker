@@ -10,7 +10,6 @@ import json
 from bounded_executor import BoundedExecutor
 import asyncio
 import connexion
-import socketio
 from connexion.resolver import RestyResolver
 
 from db import init_db, db, Payload, PayloadStatus, tables
@@ -25,7 +24,6 @@ from kafka_consumer import consumer
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 THREAD_POOL_SIZE = int(os.environ.get('THREAD_POOL_SIZE', 8))
 API_PORT = os.environ.get('API_PORT', 8080)
-ENABLE_SOCKETS = os.environ.get('ENABLE_SOCKETS', "").lower() == "true"
 VALIDATE_REQUEST_ID = os.environ.get('VALIDATE_REQUEST_ID', "true").lower() == "true"
 VALIDATE_REQUEST_ID_LENGTH = os.environ.get('VALIDATE_REQUEST_ID_LENGTH', 32)
 DISABLE_PROMETHEUS = True if os.environ.get('DISABLE_PROMETHEUS') == "True" else False
@@ -39,20 +37,7 @@ executor = BoundedExecutor(0, THREAD_POOL_SIZE)
 loop = asyncio.get_event_loop()
 loop.set_default_executor(executor)
 
-# Setup sockets
-if ENABLE_SOCKETS:
-    sio = socketio.AsyncServer(async_mode='aiohttp')
-
-    @sio.event
-    async def connect(sid, environ):
-        logger.debug('Socket connected: %s', sid)
-
-    @sio.event
-    async def disconnect(sid):
-        logger.debug('Socket disconnected: %s', sid)
-
-
-# Keep track of payloads and their statuses for prometheus metric counters and sockets
+# Keep track of payloads and their statuses for prometheus metric counters
 # Note: we are using a custom class to define the list of service statuses
 # payload_statuses  = {
 #   request_id: {
@@ -85,28 +70,13 @@ async def clean_statuses():
 async def evaluate_status_metrics(**kwargs):
     request_id, service, status, date, source = tuple(kwargs.values())
 
-    def calculate_upload_time(request_id):
-        times = [time for service in payload_statuses[request_id]['services'].values() for time in service.values()]
-        times.sort()
-        return (times[-1] - times[0]).total_seconds()
-
     def calculate_service_time_by_source(request_id, service, source):
         times = [value for key, value in payload_statuses[request_id]['services'][service].items() if key[1] == source]
         times.sort()
         return (times[-1] - times[0]).total_seconds()
 
-    def calculate_total_service_time(request_id):
-        service_to_sources = {}
-        for service, data in payload_statuses[request_id]['services'].items():
-            service_to_sources[service] = set([source for status, source in data.keys()])
-        return sum([calculate_service_time_by_source(
-            request_id, service, source) for service, sources in service_to_sources.items() for source in sources])
-
     def is_service_passed_for_source():
         return status in ['success', 'error'] and ('received', source) in payload_statuses[request_id]['services'][service].keys()
-
-    async def emit(request_id, key, data):
-        await sio.emit('duration', {'id': request_id, 'key': key, 'data': data })
 
     def determine_uniqueness():
         if request_id in payload_statuses:
@@ -135,15 +105,6 @@ async def evaluate_status_metrics(**kwargs):
             if is_service_passed_for_source():
                 UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service, source_name=source).observe(
                     calculate_service_time_by_source(request_id, service, source))
-
-    # emit upload if sockets enabled
-    if ENABLE_SOCKETS:
-        await emit(request_id, 'total_time_in_services', str(
-            timedelta(seconds=calculate_total_service_time(request_id))))
-        await emit(request_id, 'total_time', str(
-            timedelta(seconds=calculate_upload_time(request_id))))
-        await emit(request_id, service, str(
-            timedelta(seconds=calculate_service_time_by_source(request_id, service, source))))
 
 
 async def process_payload_status(json_msgs):
@@ -272,7 +233,7 @@ async def process_payload_status(json_msgs):
                     continue
 
             # Increment Prometheus Metrics
-            if not DISABLE_PROMETHEUS or ENABLE_SOCKETS:
+            if not DISABLE_PROMETHEUS:
                 await evaluate_status_metrics(**{
                     'request_id': data['request_id'],
                     'service': data['service'],
@@ -289,17 +250,6 @@ async def process_payload_status(json_msgs):
                     created_payload_status = await payload_status_to_create.create()
                     dump = created_payload_status.dump()
                     logger.debug(f"DB Transaction {created_payload_status} - {dump}")
-                    dump['date'] = str(dump['date'])
-                    dump['created_at'] = str(dump['created_at'])
-                    # change id values back to strings for sockets
-                    dump['request_id'] = data['request_id']
-                    del dump['payload_id']
-                    for column in ['service', 'source', 'status']:
-                        if column in data:
-                            dump[column] = data[column]
-                            del dump[f'{column}_id']
-                    if ENABLE_SOCKETS:
-                        await sio.emit('payload', dump)
             try:
                 await insert_status(sanitized_payload_status)
             except Exception as err:
@@ -380,13 +330,8 @@ if __name__ == "__main__":
         logger.info('Starting Kafka consumer for Payload status messages.')
         loop.create_task(consumer.run(consume))
 
-        # setup sockets
-        if ENABLE_SOCKETS:
-            logger.info("Setting up sockets")
-            sio.attach(app.app)
-
         # clean durations and metrics
-        if not DISABLE_PROMETHEUS or ENABLE_SOCKETS:
+        if not DISABLE_PROMETHEUS:
             loop.create_task(clean_statuses())
 
         # loops
