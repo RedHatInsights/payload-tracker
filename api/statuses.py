@@ -1,6 +1,6 @@
 from db import Payload, PayloadStatus, db
 from utils import dump
-from cache import cache
+from cache import redis_client
 from sqlalchemy import inspect, cast, TIMESTAMP
 from sqlalchemy.orm import Bundle
 from dateutil import parser
@@ -36,7 +36,7 @@ async def search(*args, **kwargs):
         for search_param_key in kwargs:
             if search_param_key in filters_to_integers.keys():
                 search_param_value = kwargs[search_param_key]
-                values_in_table = cache.get_value(filters_to_integers[search_param_key])
+                values_in_table = redis_client.hgetall(filters_to_integers[search_param_key], key_is_int=True)
                 if search_param_value not in values_in_table.values():
                     stop = time.time()
                     return responses.search(0, [], stop - start)
@@ -95,7 +95,7 @@ async def search(*args, **kwargs):
         for status in statuses_dump:
             for column_name, table_name in zip(['service', 'source', 'status'], ['services', 'sources', 'statuses']):
                 if f'{column_name}_id' in status:
-                    status[column_name] = cache.get_value(table_name)[status[f'{column_name}_id']]
+                    status[column_name] = redis_client.hgetall(table_name, key_is_int=True)[status[f'{column_name}_id']]
                     del status[f'{column_name}_id']
 
         # Calculate elapsed time

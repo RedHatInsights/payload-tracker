@@ -15,16 +15,15 @@ from connexion.resolver import RestyResolver
 
 from db import init_db, db, Payload, PayloadStatus, tables
 from prometheus import (
-    start_prometheus, prometheus_middleware, SERVICE_STATUS_COUNTER,
-    UPLOAD_TIME_ELAPSED_BY_SERVICE, MSG_COUNT_BY_PROCESSING_STATUS, API_RESPONSES_COUNT_BY_TYPE)
-from utils import Triple, TripleSet
-from cache import cache
+    start_prometheus, prometheus_middleware, prometheus_redis_client,
+    SERVICE_STATUS_COUNTER, UPLOAD_TIME_ELAPSED_BY_SERVICE, MSG_COUNT_BY_PROCESSING_STATUS)
+from cache import redis_client
 import tracker_logging
 from kafka_consumer import consumer
 
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 THREAD_POOL_SIZE = int(os.environ.get('THREAD_POOL_SIZE', 8))
-API_PORT = os.environ.get('API_PORT', 8080)
+API_PORT = int(os.environ.get('API_PORT', 8080))
 ENABLE_SOCKETS = os.environ.get('ENABLE_SOCKETS', "").lower() == "true"
 VALIDATE_REQUEST_ID = os.environ.get('VALIDATE_REQUEST_ID', "true").lower() == "true"
 VALIDATE_REQUEST_ID_LENGTH = os.environ.get('VALIDATE_REQUEST_ID_LENGTH', 32)
@@ -52,98 +51,57 @@ if ENABLE_SOCKETS:
         logger.debug('Socket disconnected: %s', sid)
 
 
-# Keep track of payloads and their statuses for prometheus metric counters and sockets
-# Note: we are using a custom class to define the list of service statuses
-# payload_statuses  = {
-#   request_id: {
-#       'recorded': time.time(),
-#       'services': {
-#          'ingress': [('success', None): datetime(), ...]
-#          'insights-advisor-service': [('processing', None): datetime(), ...]
-#          ...
-#       }
-#    }
-# }
-payload_statuses = {}
-
-async def clean_statuses():
-    threshold = int(os.environ.get('STATUS_DELETION_THRESHOLD', 60))
-    interval = int(os.environ.get('STATUS_DELETION_INTERVAL', 20))
-    while True:
-        await asyncio.sleep(interval, loop=loop)
-        ids_to_delete = []
-        for request_id, payload in payload_statuses.items():
-            if time.time() - payload['recorded'] > threshold:
-                ids_to_delete.append(request_id)
-        for request_id in ids_to_delete:
-            try:
-                del payload_statuses[request_id]
-            except:
-                continue
-
-
 async def evaluate_status_metrics(**kwargs):
     request_id, service, status, date, source = tuple(kwargs.values())
+    is_unique = False
+    # determines uniqueness and then inserts into redis with ttl
+    if prometheus_redis_client.set_request_data(**kwargs):
+        # grab the data from redis only once
+        data = prometheus_redis_client.get_request_data(request_id)
+        is_unique = True
 
-    def calculate_upload_time(request_id):
-        times = [time for service in payload_statuses[request_id]['services'].values() for time in service.values()]
+    def calculate_upload_time():
+        times = [values['date'] for service in data.values() for values in service]
         times.sort()
         return (times[-1] - times[0]).total_seconds()
 
-    def calculate_service_time_by_source(request_id, service, source):
-        times = [value for key, value in payload_statuses[request_id]['services'][service].items() if key[1] == source]
+    def calculate_service_time_by_source(service, source):
+        times = [values['date'] for values in data[service] if values['source'] == source]
         times.sort()
         return (times[-1] - times[0]).total_seconds()
 
-    def calculate_total_service_time(request_id):
+    def calculate_total_service_time():
         service_to_sources = {}
-        for service, data in payload_statuses[request_id]['services'].items():
-            service_to_sources[service] = set([source for status, source in data.keys()])
+        for service, value_list in data.items():
+            service_to_sources[service] = set([values['source'] for values in value_list])
         return sum([calculate_service_time_by_source(
-            request_id, service, source) for service, sources in service_to_sources.items() for source in sources])
+            service, source) for service, sources in service_to_sources.items() for source in sources])
 
     def is_service_passed_for_source():
-        return status in ['success', 'error'] and ('received', source) in payload_statuses[request_id]['services'][service].keys()
+        # check if service has statuses "received" and "success" for source
+        source_data = [value for value in data[service] if value['source'] == source]
+        status_data = [value['status'] for value in source_data]
+        return 'received' in status_data and 'success' in status_data
 
-    async def emit(request_id, key, data):
-        await sio.emit('duration', {'id': request_id, 'key': key, 'data': data })
+    async def emit(request_id, key, to_emit):
+        await sio.emit('duration', {'id': request_id, 'key': key, 'data': to_emit})
 
-    def determine_uniqueness():
-        if request_id in payload_statuses:
-            if service in payload_statuses[request_id]['services'].keys():
-                if (status, source) in payload_statuses[request_id]['services'][service].keys():
-                    dates = [v for k, v in payload_statuses[request_id]['services'][service].items() if k == (status, source)]
-                    if date in dates:
-                        return False
-                    else:
-                        payload_statuses[request_id]['services'][service].append(Triple(status, source, date))
-                else:
-                    payload_statuses[request_id]['services'][service].append(Triple(status, source, date))
-            else:
-                payload_statuses[request_id]['services'][service] = TripleSet(Triple(status, source, date))
-        else:
-            payload_statuses[request_id] = {'services': {service: TripleSet(Triple(status, source, date))}}
-        payload_statuses[request_id]['recorded'] = time.time()
-        return True
-
-    # Add payload to payload_statuses and determine uniqueness
-    if determine_uniqueness():
+    if is_unique and not DISABLE_PROMETHEUS:
         # evaluate prometheus metrics if not disabled
         # TODO: Add functionality for UPLOAD_TIME_ELAPSED prometheus metric
-        if not DISABLE_PROMETHEUS:
-            SERVICE_STATUS_COUNTER.labels(service_name=service, status=status, source_name=source).inc()
-            if is_service_passed_for_source():
-                UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service, source_name=source).observe(
-                    calculate_service_time_by_source(request_id, service, source))
+        SERVICE_STATUS_COUNTER.labels(service_name=service, status=status, source_name=source).inc()
+        if is_service_passed_for_source():
+            UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service, source_name=source).observe(
+                calculate_service_time_by_source(service, source))
 
     # emit upload if sockets enabled
     if ENABLE_SOCKETS:
         await emit(request_id, 'total_time_in_services', str(
-            timedelta(seconds=calculate_total_service_time(request_id))))
+            timedelta(seconds=calculate_total_service_time())))
         await emit(request_id, 'total_time', str(
-            timedelta(seconds=calculate_upload_time(request_id))))
+            timedelta(seconds=calculate_upload_time())))
         await emit(request_id, service, str(
-            timedelta(seconds=calculate_service_time_by_source(request_id, service, source))))
+            timedelta(seconds=calculate_service_time_by_source(service, source))))
 
 
 async def process_payload_status(json_msgs):
@@ -237,7 +195,7 @@ async def process_payload_status(json_msgs):
             try:
                 # check if service/source is not in table
                 for column_name, table_name in zip(['service', 'source', 'status'], ['services', 'sources', 'statuses']):
-                    current_column_items = cache.get_value(table_name)
+                    current_column_items = redis_client.hgetall(table_name, key_is_int=True)
                     if column_name in data:
                         try:
                             if not data[column_name] in current_column_items.values():
@@ -246,7 +204,7 @@ async def process_payload_status(json_msgs):
                                     to_create = tables[table_name](**payload)
                                     created_value = await to_create.create()
                                     dump = created_value.dump()
-                                    cache.set_value(table_name, {dump['id']: dump['name']})
+                                    redis_client.hset(table_name, mapping={dump['id']: dump['name']})
                                     logger.debug(f'DB Transaction {payload} - {dump}')
                                     sanitized_payload_status[f'{column_name}_id'] = dump['id']
                             else:
@@ -347,7 +305,7 @@ def setup_api():
 async def update_current_services_and_sources(db):
     for table in ['services', 'sources', 'statuses']:
         res = await db.select([tables[table]]).gino.all()
-        cache.set_value(table, dict(res))
+        redis_client.hset(table, mapping=dict(res))
 
 
 if __name__ == "__main__":
@@ -384,10 +342,6 @@ if __name__ == "__main__":
         if ENABLE_SOCKETS:
             logger.info("Setting up sockets")
             sio.attach(app.app)
-
-        # clean durations and metrics
-        if not DISABLE_PROMETHEUS or ENABLE_SOCKETS:
-            loop.create_task(clean_statuses())
 
         # loops
         logger.info("Running...")

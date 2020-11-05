@@ -1,30 +1,31 @@
+import os
 import logging
 import settings
+import traceback
+from redis import Redis
 
+REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
+REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
+SECONDS_TO_LIVE = int(os.environ.get('SECONDS_TO_LIVE', 100))
 logger = logging.getLogger(settings.APP_NAME)
 
 
-class Cache:
+class Client(Redis):
 
-    def __init__(self, items):
-        self.cache = self._create_cache(items)
+    def __init__(self, **kwargs):
+        super(Client, self).__init__(**kwargs)
 
-    def _create_cache(self, items):
-        if type(items) is dict:
-            return items
-        else:
-            logger.error(f'Could not initialize cache with type {type(items)}')
-            raise TypeError
+    def hgetall(self, name, key_is_int=False):
+        # Overriding this method to provide decoding
+        return {k.decode() if not key_is_int else int(
+            k.decode()): v.decode() for k, v in super().hgetall(name).items()}
 
-    def set_value(self, key, value):
-        self.cache[key].update(value)
-
-    def get_value(self, key):
-        return self.cache[key]
-
-    def __iter__(self):
-        for key in self.cache:
-            yield self.cache[key]
+    def lget(self, key):
+        try:
+            return [item.decode() for item in self.lrange(
+                key, 0, self.llen(key) - 1)] # lrange is inclusive
+        except:
+            logger.error(traceback.format_exc())
 
 
-cache = Cache({'services': {}, 'sources': {}, 'statuses': {}})
+redis_client = Client(host=REDIS_HOST, db=0, port=REDIS_PORT)
