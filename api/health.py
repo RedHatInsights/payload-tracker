@@ -13,7 +13,6 @@ from kafka_consumer import consumer
 from cache import redis_client
 
 logger = logging.getLogger(settings.APP_NAME)
-ENABLE_SOCKETS = os.environ.get('ENABLE_SOCKETS', "").lower() == "true"
 DISABLE_PROMETHEUS = True if os.environ.get('DISABLE_PROMETHEUS') == "True" else False
 API_PORT = os.environ.get('API_PORT', 8080)
 PROMETHEUS_PORT = os.environ.get('PROMETHEUS_PORT', 8000)
@@ -135,14 +134,6 @@ async def search(*args, **kwargs):
             }})
     except Exception as err:
         return responses.failed(f'{FAILED_MSG} with error: {err}')
-
-    if ENABLE_SOCKETS:
-        # check if sockets endpoint is available
-        logger.debug(f'Checking connection to /socket.io...')
-        try:
-            await check_endpoint('localhost', API_PORT, '/socket.io')
-        except Exception as err:
-            return responses.failed(f'{FAILED_MSG} with error: {err}')
 
     if not DISABLE_PROMETHEUS:
         # check endpoints on PROMETHEUS_PORT for valid responses
