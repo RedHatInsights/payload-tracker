@@ -30,8 +30,10 @@ services:
       - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
       - KAFKA_ZOOKEEPER_CONNECT=zookeeper:32181
   redis:
-    image: quay.io/cloudservices/redis
+    image: registry.redhat.io/rhel8/redis-5
     ports:
       - 6379:6379
     depends_on:
       - payload-tracker-db
+    environment:
+      - REDIS_PASSWORD=payloadtracker
