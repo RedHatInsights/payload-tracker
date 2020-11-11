@@ -328,7 +328,7 @@ data:
           "pluginVersion": "7.2.1",
           "targets": [
             {
-              "expr": "avg_over_time(payload_tracker_api_response_count_total[$__interval])",
+              "expr": "sum(sum_over_time(payload_tracker_api_response_count_total[$__interval])) by (status)",
               "interval": "",
               "legendFormat": "{{status}}",
               "refId": "A"
