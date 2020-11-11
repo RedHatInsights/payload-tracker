@@ -35,5 +35,3 @@ services:
       - 6379:6379
     depends_on:
       - payload-tracker-db
-    environment:
-      - REDIS_PASSWORD=payloadtracker
