@@ -136,7 +136,7 @@ async def process_payload_status(json_msgs):
                             sanitized_payload_status['payload_id'] = dump['id']
                             logger.debug(f"DB Transaction {created_payload} - {dump}")
                     except:
-                        logger.error(f'Failed to insert Payload into Table -- will retry update')
+                        logger.debug(f'Failed to insert Payload into Table -- will retry update')
                         payload_dump = await get_payload()
                         if payload_dump:
                             sanitized_payload_status['payload_id'] = payload_dump['id']
@@ -208,14 +208,14 @@ async def process_payload_status(json_msgs):
             try:
                 await insert_status(sanitized_payload_status)
             except Exception as err:
-                logger.error(f'Failed to insert PayloadStatus with ERROR: {err}')
+                logger.debug(f'Failed to insert PayloadStatus with ERROR: {err}')
                 # First, we assume there is no partition. If there is a further error, simply try reinsertion
                 try:
                     date = sanitized_payload_status['date']
                     await db.bind.scalar(f'SELECT create_partition(\'{date}\'::DATE, \'{date}\'::DATE + INTERVAL \'1 DAY\');')
                     await insert_status(sanitized_payload_status)
                 except Exception as err:
-                    logger.error(f'Failed to insert PayloadStatus with ERROR: {err}')
+                    logger.debug(f'Failed to insert PayloadStatus with ERROR: {err}')
                     try:
                         await insert_status(sanitized_payload_status)
                     except Exception as err:

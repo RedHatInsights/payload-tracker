@@ -99,6 +99,7 @@ async def search(*args, **kwargs):
             redis_client.info()
         except Exception as err:
             if count == REDIS_RETRY_MAX - 1:
+                logger.error(f'{FAILED_MSG} with error: {traceback.format_exc()}')
                 return responses.failed(f'{FAILED_MSG} with error: {err}')
             await asyncio.sleep(REDIS_COUNT_TIMEOUT)
         else:
