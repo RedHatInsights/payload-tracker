@@ -257,12 +257,10 @@ async def update_current_services_and_sources(db):
 
 if __name__ == "__main__":
     try:
-        logger.info('Starting Payload Tracker Service')
-
-        # Log env vars / settings
-        logger.info("Using LOG_LEVEL: %s", LOG_LEVEL)
-        logger.info("Using THREAD_POOL_SIZE: %s", THREAD_POOL_SIZE)
-        logger.info("Using DISABLE_PROMETHEUS: %s", DISABLE_PROMETHEUS)
+        # Log the startup environment
+        logger.info("Starting Payload Tracker Service using the following environment:")
+        for key, val in globals().items():
+            logger.info('%s(%s): %s', key, type(key), val)
 
         # setup the connexion app
         logger.info("Setting up REST API")
