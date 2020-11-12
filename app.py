@@ -255,10 +255,10 @@ async def update_current_services_and_sources(db):
         redis_client.hset(table, mapping=dict(res))
 
 
-if __name__ == "__main__":
+def start():
     try:
         # Log the startup environment
-        logger.info("Starting Payload Tracker Service using the following environment:")
+        logger.info("Using the following environment:")
         for key, val in globals().items():
             logger.info('%s(%s): %s', key, type(key), val)
 
@@ -291,3 +291,8 @@ if __name__ == "__main__":
         logger.error(f"Failed starting Payload Tracker with Error: {the_error}")
         # Shut down loop
         loop.stop()
+
+
+if __name__ == "__main__":
+    logger.info('Starting the Payload Tracker Service')
+    start()
