@@ -259,7 +259,7 @@ def start():
     try:
         # Log the startup environment
         logger.info("Using the following environment:")
-        for key, val in globals().items():
+        for key, val in os.environ.items():
             logger.info('%s(%s): %s', key, type(key), val)
 
         # setup the connexion app
