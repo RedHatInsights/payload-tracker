@@ -6,7 +6,7 @@ DEBUG = ENVIRONMENT in ('dev', 'ci', 'qa')
 # Logging settings
 DEV_LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 DEV_LOG_MSG_FORMAT = "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] " \
-            "[%(thread)d  %(threadName)s] [%(process)d] %(message)s"
+            "[%(thread)d  %(threadName)s] [%(process)d] [%(tasks)s] %(message)s"
 DEV_LOG_DATE_FORMAT = "%H:%M:%S"
 APP_NAME = "payload-tracker-service"
 
