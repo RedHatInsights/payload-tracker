@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import traceback
+import asyncio
 from logstash_formatter import LogstashFormatterV1
 import settings
 import watchtower
@@ -10,10 +11,13 @@ from boto3 import Session
 
 
 class TrackerStreamHandler(logging.StreamHandler):
+
     def __init__(self):
         super().__init__(sys.stdout)
         self.setFormatter(
-            OurFormatter(fmt=json.dumps({"extra": {"component": settings.APP_NAME}}))
+            OurFormatter(fmt=json.dumps({"extra": {
+                "component": settings.APP_NAME, "tasks": None
+            }}))
         )
 
 
@@ -25,7 +29,30 @@ class OurFormatter(LogstashFormatterV1):
             setattr(record, "exception", "".join(traceback.format_exception(*exc)))
             setattr(record, "exc_info", None)
 
+        setattr(record, "tasks", len([task for task in asyncio.Task.all_tasks() if not task.done()]))
+
         return super(OurFormatter, self).format(record)
+
+
+class DevLogRecord(logging.LogRecord):
+
+    def __init__(self, record, tasks):
+        self.__class__ = type(record.__class__.__name__,
+                             (self.__class__, record.__class__),
+                             {})
+        self.__dict__ = record.__dict__
+        self.tasks = tasks
+
+
+class DevStreamHandler(logging.StreamHandler):
+
+    def __init__(self):
+        super().__init__(sys.stdout)
+
+    def emit(self, record):
+        tasks = len([task for task in asyncio.Task.all_tasks() if not task.done()])
+        record = DevLogRecord(record, f'{tasks} running task(s)')
+        super(DevStreamHandler, self).emit(record)
 
 
 class LoggerWrapper(logging.Logger):
@@ -89,8 +116,9 @@ def initialize_logging():
             logging.root.addHandler(TrackerStreamHandler())
     else:
         logging.basicConfig(level=logging.getLevelName(settings.DEV_LOG_LEVEL),
-                        format=settings.DEV_LOG_MSG_FORMAT,
-                        datefmt=settings.DEV_LOG_DATE_FORMAT)
+                            format=settings.DEV_LOG_MSG_FORMAT,
+                            datefmt=settings.DEV_LOG_DATE_FORMAT,
+                            handlers=[DevStreamHandler()])
 
     # overwrite RootLogger and return
     logging.root = LoggerWrapper(logging.getLogger(settings.APP_NAME))
