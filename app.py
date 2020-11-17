@@ -26,6 +26,7 @@ API_PORT = int(os.environ.get('API_PORT', 8080))
 VALIDATE_REQUEST_ID = os.environ.get('VALIDATE_REQUEST_ID', "true").lower() == "true"
 VALIDATE_REQUEST_ID_LENGTH = os.environ.get('VALIDATE_REQUEST_ID_LENGTH', 32)
 DISABLE_PROMETHEUS = True if os.environ.get('DISABLE_PROMETHEUS') == "True" else False
+KAFKA_BATCH_SIZE = int(os.environ.get('KAFKA_BATCH_SIZE', 100))
 
 # Setup logging
 logger = tracker_logging.initialize_logging()
@@ -228,11 +229,18 @@ async def process_payload_status(json_msgs):
 
 
 async def consume(consumer):
-    data = await consumer.getmany()
-    for tp, msgs in data.items():
-        logger.debug("Received messages: %s", msgs)
-        loop.create_task(process_payload_status(msgs))
-    await asyncio.sleep(0.1)
+    batch = []
+    async for msg in consumer:
+        batch.append(msg)
+        if len(batch) >= KAFKA_BATCH_SIZE:
+            logger.debug("Received messages: %s", batch)
+            try:
+                await process_payload_status(batch)
+            except:
+                continue
+            else:
+                await consumer.commit()
+                batch = []
 
 
 async def setup_db():
