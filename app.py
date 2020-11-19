@@ -15,7 +15,8 @@ from connexion.resolver import RestyResolver
 from db import init_db, db, Payload, PayloadStatus, tables
 from prometheus import (
     start_prometheus, prometheus_middleware, prometheus_redis_client,
-    SERVICE_STATUS_COUNTER, UPLOAD_TIME_ELAPSED_BY_SERVICE, MSG_COUNT_BY_PROCESSING_STATUS)
+    SERVICE_STATUS_COUNTER, UPLOAD_TIME_ELAPSED_BY_SERVICE,
+    MSG_COUNT_BY_PROCESSING_STATUS, TASKS_RUNNING_COUNT_SUMMARY)
 from cache import redis_client
 import tracker_logging
 from kafka_consumer import consumer
@@ -230,7 +231,9 @@ async def process_payload_status(json_msgs):
 
 async def consume(consumer):
     def get_running_tasks():
-        return len([t for t in asyncio.Task.all_tasks() if not t.done()])
+        tasks = len([t for t in asyncio.Task.all_tasks() if not t.done()])
+        TASKS_RUNNING_COUNT_SUMMARY.observe(tasks)
+        return tasks
 
     data = await consumer.getmany()
     for tp, msgs in data.items():
