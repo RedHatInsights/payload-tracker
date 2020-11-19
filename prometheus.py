@@ -27,6 +27,8 @@ API_RESPONSES_COUNT_BY_TYPE = Counter('payload_tracker_api_response_count',
 MSG_COUNT_BY_PROCESSING_STATUS = Counter('payload_tracker_msg_count',
                                          'Counter for msgs processed by ["consumed", "success", "error"]',
                                          ['status'])
+TASKS_RUNNING_COUNT_SUMMARY = Summary('payload_tracker_tasks_running',
+                                      'Tracks number of concurrently running tasks')
 
 PAYLOAD_TRACKER_SERVICE_VERSION = Info(
     'payload_tracker_service_version',
