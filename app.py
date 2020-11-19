@@ -38,9 +38,23 @@ loop = asyncio.get_event_loop()
 loop.set_default_executor(executor)
 
 
-def evaluate_status_metrics(**kwargs):
+async def evaluate_status_metrics(**kwargs):
     logger.debug(f"Processing metrics for message: {kwargs}")
-    request_id, service, status, date, source = tuple(kwargs.values())
+
+    # get values that are necessary for calculatings metrics from kwargs
+    msg_values = kwargs.copy()
+    keys_to_delete = [k for k in msg_values.keys() if k not in [
+        'request_id', 'service', 'status', 'date', 'source']]
+    for key in keys_to_delete:
+        del msg_values[key]
+    alphabetized_msg_values = dict(sorted(msg_values.items(), key=lambda x:x[0].lower()))
+    date, request_id, service, source, status = tuple(alphabetized_msg_values.values())
+
+    # wait for kwargs values to be present in redis before proceeding
+    del kwargs['request_id']
+    while request_client.is_unique(request_id, kwargs):
+        await asyncio.sleep(0.1)
+
     data = request_client.get(request_id, postprocess='BY_SERVICE')
 
     def calculate_service_time_by_source(service, source):
@@ -111,6 +125,17 @@ async def process_payload_status(json_msgs):
 
             sanitized_payload_status = {}
 
+            # process date before caching values
+            if 'date' in data:
+                try:
+                    data['date'] = default_tzinfo(parser.parse(data['date']), tzutc()).astimezone(tzutc())
+                except:
+                    logger.error(f"Error parsing date: {traceback.format_exc()}")
+                    MSG_COUNT_BY_PROCESSING_STATUS.labels(status="error").inc()
+                    continue
+                else:
+                    sanitized_payload_status['date'] = data['date']
+
             # check if not request_id in Payloads Table and update columns
             try:
                 payload_dump = request_client.get(data['request_id'], postprocess='UNIQUE_VALUES')
@@ -178,22 +203,11 @@ async def process_payload_status(json_msgs):
             if 'status_msg' in data:
                 sanitized_payload_status['status_msg'] = data['status_msg']
 
-            if 'date' in data:
-                try:
-                    sanitized_payload_status['date'] = default_tzinfo(parser.parse(data['date']), tzutc()).astimezone(tzutc())
-                except:
-                    the_error = traceback.format_exc()
-                    logger.error(f"Error parsing date: {the_error}")
-                    MSG_COUNT_BY_PROCESSING_STATUS.labels(status="error").inc()
-                    continue
-
             # Increment Prometheus Metrics
             if not DISABLE_PROMETHEUS:
-                evaluate_status_metrics(**{
-                    'request_id': data['request_id'],
-                    'service': data['service'],
-                    'status': data['status'],
-                    'date': sanitized_payload_status['date'],
+                await evaluate_status_metrics(**{
+                    **data,
+                    'id': str(sanitized_payload_status['payload_id']), # must be string for uniqueness check
                     'source': None if 'source' not in data else data['source']
                 })
 

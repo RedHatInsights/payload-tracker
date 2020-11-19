@@ -6,6 +6,8 @@ import settings
 import traceback
 from redis import Redis
 from dateutil.parser import parse
+from dateutil.utils import default_tzinfo
+from dateutil.tz import tzutc
 from prometheus_client import Summary
 
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
@@ -49,20 +51,26 @@ class Client(Redis):
 redis_client = Client(host=REDIS_HOST, db=0, port=REDIS_PORT)
 
 
-# Define RequestClient postprocessing function for request_client.get
+# Define RequestClient postprocessing functions for request_client.get
 def get_msgs_by_service(data):
     """ postprocessing function for request_client.get """
     msgs_by_service = {}
     for values in data.values():
-        entry = values.copy() # ensure we have "source" defined
-        if 'source' not in values:
-            entry['source'] = None
-        service = entry['service']
-        del entry['service']
-        if service in msgs_by_service.keys():
-            msgs_by_service[service].append(entry)
-        else:
-            msgs_by_service[service] = [entry]
+        try:
+            entry = values.copy() # ensure "source" is defined
+            if 'source' not in values:
+                entry['source'] = None
+            if 'service' in entry: # ensure "service" is defined
+                service = entry['service']
+                del entry['service']
+                if service in msgs_by_service.keys():
+                    msgs_by_service[service].append(entry)
+                else:
+                    msgs_by_service[service] = [entry]
+            else:
+                continue
+        except:
+            logger.error(traceback.format_exc())
     return msgs_by_service
 
 
@@ -92,7 +100,7 @@ class RequestClient():
         def _decode(res):
             for k, v in res.items():
                 if 'date' == k:
-                    res['date'] = parse(res['date'])
+                    res['date'] = default_tzinfo(parse(res['date']), tzutc()).astimezone(tzutc())
                 elif v == '':
                     res[k] = None
             return res
