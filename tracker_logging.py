@@ -73,6 +73,7 @@ class CWStreamHandler(watchtower.CloudWatchLogHandler):
 
     def emit(self, message):
         if message.levelname.upper() == 'ERROR':
+            setattr(message, 'tasks', len([task for task in asyncio.Task.all_tasks() if not task.done()]))
             return super().emit(message)
 
 
