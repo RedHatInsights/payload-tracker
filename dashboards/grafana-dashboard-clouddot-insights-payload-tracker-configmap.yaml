@@ -747,7 +747,7 @@ data:
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "7.2.2",
+          "pluginVersion": "7.2.1",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -757,7 +757,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(payload_tracker_redis_latency_sum[1m]) / rate(payload_tracker_redis_latency_count[1m])) by (request_type)",
+              "expr": "avg(rate(payload_tracker_redis_latency_sum[1m]) / rate(payload_tracker_redis_latency_count[1m])) by (request_type)",
               "legendFormat": "{{request_type}}",
               "refId": "A"
             }
@@ -811,48 +811,58 @@ data:
           "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
-              "custom": {}
+              "custom": {
+                "align": null,
+                "filterable": false
+              },
+              "mappings": [],
+              "unit": "short"
             },
             "overrides": []
           },
-          "fill": 1,
+          "fill": 6,
           "fillGradient": 0,
           "gridPos": {
             "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 45
+            "w": 24,
+            "x": 0,
+            "y": 53
           },
           "hiddenSeries": false,
-          "id": 28,
+          "id": 30,
           "legend": {
-            "avg": false,
+            "alignAsTable": true,
+            "avg": true,
             "current": false,
-            "max": false,
+            "hideEmpty": false,
+            "hideZero": false,
+            "max": true,
             "min": false,
+            "rightSide": true,
             "show": true,
             "total": false,
-            "values": false
+            "values": true
           },
           "lines": true,
           "linewidth": 1,
           "nullPointMode": "null",
           "options": {
-            "alertThreshold": true
+            "alertThreshold": false
           },
           "percentage": false,
-          "pluginVersion": "7.2.2",
+          "pluginVersion": "7.2.1",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
           "spaceLength": 10,
-          "stack": false,
+          "stack": true,
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(payload_tracker_tasks_running_sum[1m]) / rate(payload_tracker_tasks_running_count[1m]))",
-              "legendFormat": "Tasks",
+              "expr": "rate(payload_tracker_tasks_running_sum[1m]) / rate(payload_tracker_tasks_running_count[1m])",
+              "interval": "",
+              "legendFormat": "{{pod}}",
               "refId": "A"
             }
           ],
@@ -863,7 +873,7 @@ data:
           "title": "Running Tasks",
           "tooltip": {
             "shared": true,
-            "sort": 0,
+            "sort": 2,
             "value_type": "individual"
           },
           "type": "graph",
