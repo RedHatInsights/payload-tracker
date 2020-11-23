@@ -9,6 +9,8 @@ import settings
 import watchtower
 from boto3 import Session
 
+from utils import get_running_tasks
+
 
 class TrackerStreamHandler(logging.StreamHandler):
 
@@ -29,7 +31,7 @@ class OurFormatter(LogstashFormatterV1):
             setattr(record, "exception", "".join(traceback.format_exception(*exc)))
             setattr(record, "exc_info", None)
 
-        setattr(record, "tasks", len([task for task in asyncio.Task.all_tasks() if not task.done()]))
+        setattr(record, "tasks", get_running_tasks())
 
         return super(OurFormatter, self).format(record)
 
@@ -50,8 +52,7 @@ class DevStreamHandler(logging.StreamHandler):
         super().__init__(sys.stdout)
 
     def emit(self, record):
-        tasks = len([task for task in asyncio.Task.all_tasks() if not task.done()])
-        record = DevLogRecord(record, f'{tasks} running task(s)')
+        record = DevLogRecord(record, f'{get_running_tasks()} running task(s)')
         super(DevStreamHandler, self).emit(record)
 
 
@@ -73,7 +74,7 @@ class CWStreamHandler(watchtower.CloudWatchLogHandler):
 
     def emit(self, message):
         if message.levelname.upper() == 'ERROR':
-            setattr(message, 'tasks', len([task for task in asyncio.Task.all_tasks() if not task.done()]))
+            setattr(message, 'tasks', get_running_tasks())
             return super().emit(message)
 
 
