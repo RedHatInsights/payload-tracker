@@ -40,25 +40,26 @@ loop.set_default_executor(executor)
 
 def evaluate_status_metrics(**kwargs):
     logger.debug(f"Processing metrics for message: {kwargs}")
-    request_id, service, status, date, source = tuple(kwargs.values())
-    data = request_client.get(request_id, postprocess='BY_SERVICE')
+    if request_client.set(kwargs.copy()):
+        request_id, service, status, date, source = tuple(kwargs.values())
+        data = request_client.get(request_id, postprocess='BY_SERVICE')
 
-    def calculate_service_time_by_source(service, source):
-        times = [values['date'] for values in data[service] if values['source'] == source]
-        times.sort()
-        return (times[-1] - times[0]).total_seconds()
+        def calculate_service_time_by_source(service, source):
+            times = [values['date'] for values in data[service] if values['source'] == source]
+            times.sort()
+            return (times[-1] - times[0]).total_seconds()
 
-    def is_service_passed_for_source():
-        # check if service has statuses "received" and "success" for source
-        source_data = [value for value in data[service] if value['source'] == source]
-        status_data = [value['status'] for value in source_data]
-        return 'received' in status_data and 'success' in status_data
+        def is_service_passed_for_source():
+            # check if service has statuses "received" and "success" for source
+            source_data = [value for value in data[service] if value['source'] == source]
+            status_data = [value['status'] for value in source_data]
+            return 'received' in status_data and 'success' in status_data
 
-    # TODO: Add functionality for UPLOAD_TIME_ELAPSED prometheus metric
-    SERVICE_STATUS_COUNTER.labels(service_name=service, status=status, source_name=source).inc()
-    if is_service_passed_for_source():
-        UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service, source_name=source).observe(
-            calculate_service_time_by_source(service, source))
+        # TODO: Add functionality for UPLOAD_TIME_ELAPSED prometheus metric
+        SERVICE_STATUS_COUNTER.labels(service_name=service, status=status, source_name=source).inc()
+        if is_service_passed_for_source():
+            UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service, source_name=source).observe(
+                calculate_service_time_by_source(service, source))
 
 
 async def process_payload_status(json_msgs):
@@ -112,14 +113,15 @@ async def process_payload_status(json_msgs):
             sanitized_payload_status = {}
 
             # check if not request_id in Payloads Table and update columns
+            async def get_payload():
+                payload = await Payload.query.where(Payload.request_id == data['request_id']).gino.all()
+                return payload[0].dump() if len(payload) > 0 else None
             try:
-                payload_dump = request_client.get(data['request_id'], postprocess='UNIQUE_VALUES')
+                payload_dump = await get_payload()
                 logger.info(f"Sanitized Payload for DB {sanitized_payload}")
                 if payload_dump:
-                    sanitized_payload_status['payload_id'] = int(payload_dump['id'])
-                    request_client.set({**data, **{'id': payload_dump['id']}})
-                    sanitized = {k: v for k, v in sanitized_payload.items() if k is not 'request_id'}
-                    values = {k: v for k, v in sanitized.items() if k not in payload_dump or payload_dump[k] is None}
+                    sanitized_payload_status['payload_id'] = payload_dump['id']
+                    values = {k: v for k, v in sanitized_payload.items() if k not in payload_dump or payload_dump[k] is None}
                     if len(values) > 0:
                         await Payload.update.values(**values).where(
                             Payload.request_id == sanitized_payload['request_id']
@@ -132,15 +134,12 @@ async def process_payload_status(json_msgs):
                             dump = created_payload.dump()
                             sanitized_payload_status['payload_id'] = dump['id']
                             logger.debug(f"DB Transaction {created_payload} - {dump}")
-                            request_client.set({**data, **{'id': dump['id']}}) # add data to redis
                     except:
                         logger.debug(f'Failed to insert Payload into Table -- will retry update')
-                        payload_dump = request_client.get(data['request_id'], postprocess='UNIQUE_VALUES')
+                        payload_dump = await get_payload()
                         if payload_dump:
-                            sanitized_payload_status['payload_id'] = int(payload_dump['id'])
-                            request_client.set({**data, **{'id': payload_dump['id']}})
-                            sanitized = {k: v for k, v in sanitized_payload.items() if k is not 'request_id'}
-                            values = {k: v for k, v in sanitized.items() if k not in payload_dump or payload_dump[k] is None}
+                            sanitized_payload_status['payload_id'] = payload_dump['id']
+                            values = {k: v for k, v in sanitized_payload.items() if k not in payload_dump or payload_dump[k] is None}
                             if len(values) > 0:
                                 await Payload.update.values(**values).where(
                                     Payload.request_id == sanitized_payload['request_id']
