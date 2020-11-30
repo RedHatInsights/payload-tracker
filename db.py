@@ -1,6 +1,10 @@
+import os
 import config
 from gino import Gino
 db = Gino()
+
+MAX_POOL_SIZE = int(os.environ.get('MAX_POOL_SIZE', 20))
+MIN_POOL_SIZE = int(os.environ.get('MIN_POOL_SIZE', 20))
 
 
 async def init_db():
@@ -8,7 +12,10 @@ async def init_db():
                                                            config.db_password,
                                                            config.db_host,
                                                            config.db_port,
-                                                           config.db_name))
+                                                           config.db_name), **{
+                                                               'min_size': MIN_POOL_SIZE,
+                                                               'max_size': MAX_POOL_SIZE
+                                                           })
 
 
 async def disconnect():
