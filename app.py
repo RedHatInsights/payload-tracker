@@ -55,11 +55,12 @@ def evaluate_status_metrics(**kwargs):
             status_data = [value['status'] for value in source_data]
             return 'received' in status_data and 'success' in status_data
 
-        # TODO: Add functionality for UPLOAD_TIME_ELAPSED prometheus metric
-        SERVICE_STATUS_COUNTER.labels(service_name=service, status=status, source_name=source).inc()
-        if is_service_passed_for_source():
-            UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service, source_name=source).observe(
-                calculate_service_time_by_source(service, source))
+        if data:
+            # TODO: Add functionality for UPLOAD_TIME_ELAPSED prometheus metric
+            SERVICE_STATUS_COUNTER.labels(service_name=service, status=status, source_name=source).inc()
+            if is_service_passed_for_source():
+                UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service, source_name=source).observe(
+                    calculate_service_time_by_source(service, source))
 
 
 async def process_payload_status(json_msgs):

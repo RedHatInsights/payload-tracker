@@ -53,27 +53,33 @@ redis_client = Client(host=REDIS_HOST, db=0, port=REDIS_PORT)
 def get_msgs_by_service(data):
     """ postprocessing function for request_client.get """
     msgs_by_service = {}
-    for values in data.values():
-        entry = values.copy() # ensure we have "source" defined
-        if 'source' not in values:
-            entry['source'] = None
-        service = entry['service']
-        del entry['service']
-        if service in msgs_by_service.keys():
-            msgs_by_service[service].append(entry)
-        else:
-            msgs_by_service[service] = [entry]
-    return msgs_by_service
+    try:
+        for values in data.values():
+            entry = values.copy() # ensure we have "source" defined
+            if 'source' not in values:
+                entry['source'] = None
+            service = entry['service']
+            del entry['service']
+            if service in msgs_by_service.keys():
+                msgs_by_service[service].append(entry)
+            else:
+                msgs_by_service[service] = [entry]
+    except Exception as err:
+        raise err
+    return None if not len(msgs_by_service) > 0 else msgs_by_service
 
 
 def get_unique_values(data):
     """ postprocessing function for request_client.get """
     unique_values = {}
-    for entry in data.values():
-        for k in entry.keys():
-            # check for existing sanitized_payload values in the cache
-            if k in ['id', 'inventory_id', 'system_id', 'account'] and k not in unique_values:
-                unique_values[k] = entry[k]
+    try:
+        for entry in data.values():
+            for k in entry.keys():
+                # check for existing sanitized_payload values in the cache
+                if k in ['id', 'inventory_id', 'system_id', 'account'] and k not in unique_values:
+                    unique_values[k] = entry[k]
+    except Exception as err:
+        raise err
     return None if not len(unique_values) > 0 else unique_values
 
 
@@ -104,7 +110,12 @@ class RequestClient():
             logger.error(traceback.format_exc())
         else:
             if postprocess and postprocess in self.POSTPROCESS_FUNCTIONS:
-                return self.POSTPROCESS_FUNCTIONS[postprocess](data)
+                try:
+                    res = self.POSTPROCESS_FUNCTIONS[postprocess](data)
+                except:
+                    logger.error(f'Postprocessing of {request_id} data failed with error: {traceback.format_exc()}')
+                else:
+                    return res
             else:
                 return data
 
