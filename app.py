@@ -88,8 +88,8 @@ async def process_payload_status(json_msgs):
                 logger.debug(f"Payload {data} missing keys {missing_keys}. Expected {expected_keys}")
                 continue
 
-            if data['request_id'] == '-1':
-                logger.debug(f"Payload {data} has request_id -1.")
+            if data['request_id'] in ['-1', 'None']:
+                logger.debug(f"Payload {data} has request_id {data['request_id']}.")
                 continue
 
             if VALIDATE_REQUEST_ID and (len(data['request_id']) > VALIDATE_REQUEST_ID_LENGTH):
