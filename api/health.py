@@ -96,7 +96,7 @@ async def search(*args, **kwargs):
     logger.debug('Checking redis connection...')
     for count in range(REDIS_RETRY_MAX):
         try:
-            redis_client.info()
+            await redis_client.info()
         except Exception as err:
             if count == REDIS_RETRY_MAX - 1:
                 logger.error(f'{FAILED_MSG} with error: {traceback.format_exc()}')

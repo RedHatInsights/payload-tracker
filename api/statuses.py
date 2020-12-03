@@ -95,7 +95,8 @@ async def search(*args, **kwargs):
         for status in statuses_dump:
             for column_name, table_name in zip(['service', 'source', 'status'], ['services', 'sources', 'statuses']):
                 if f'{column_name}_id' in status:
-                    status[column_name] = redis_client.hgetall(table_name, key_is_int=True)[status[f'{column_name}_id']]
+                    table = await redis_client.hgetall(table_name, key_is_int=True)
+                    status[column_name] = table[status[f'{column_name}_id']]
                     del status[f'{column_name}_id']
 
         # Calculate elapsed time

@@ -3,7 +3,7 @@ import time
 from dateutil import parser
 from dateutil.utils import default_tzinfo
 from dateutil.tz import tzutc
-from datetime import timedelta
+from datetime import timedelta, datetime
 import traceback
 import json
 
@@ -16,9 +16,9 @@ from db import init_db, db, Payload, PayloadStatus, tables
 from prometheus import (
     start_prometheus, prometheus_middleware, SERVICE_STATUS_COUNTER,
     UPLOAD_TIME_ELAPSED_BY_SERVICE, MSG_COUNT_BY_PROCESSING_STATUS, TASKS_RUNNING_COUNT_SUMMARY)
-from cache import redis_client, request_client
 import tracker_logging
 from kafka_consumer import consumer
+from cache import init_redis, redis_client, request_client
 
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 THREAD_POOL_SIZE = int(os.environ.get('THREAD_POOL_SIZE', 8))
@@ -27,6 +27,7 @@ VALIDATE_REQUEST_ID = os.environ.get('VALIDATE_REQUEST_ID', "true").lower() == "
 VALIDATE_REQUEST_ID_LENGTH = os.environ.get('VALIDATE_REQUEST_ID_LENGTH', 32)
 DISABLE_PROMETHEUS = True if os.environ.get('DISABLE_PROMETHEUS') == "True" else False
 MAXIMUM_RUNNING_TASKS = int(os.environ.get('MAXIMUM_RUNNING_TASKS', 50))
+METRIC_FETCH_RETRY_COUNT = int(os.environ.get('METRIC_FETCH_RETRY_COUNT', 3))
 
 # Setup logging
 logger = tracker_logging.initialize_logging()
@@ -38,26 +39,40 @@ loop = asyncio.get_event_loop()
 loop.set_default_executor(executor)
 
 
-def evaluate_status_metrics(**kwargs):
+async def evaluate_status_metrics(**kwargs):
     logger.debug(f"Processing metrics for message: {kwargs}")
     request_id, service, status, date, source = tuple(kwargs.values())
-    data = request_client.get(request_id, postprocess='BY_SERVICE')
+    data = await request_client.get(request_id, postprocess='BY_SERVICE')
+
+    # validate service key is in data from redis
+    retries = 0
+    while service not in data and retries < METRIC_FETCH_RETRY_COUNT:
+        await asyncio.sleep(0.5)
+        data = await request_client.get(request_id, postprocess='BY_SERVICE')
+        retries += 1
 
     def calculate_service_time_by_source(service, source):
-        times = [values['date'] for values in data[service] if values['source'] == source]
-        times.sort()
-        return (times[-1] - times[0]).total_seconds()
+        try:
+            times = [values['date'] for values in data[service] if values['source'] == source]
+            times.sort()
+            return (times[-1] - times[0]).total_seconds()
+        except:
+            logger.error(traceback.format_exc())
 
-    def is_service_passed_for_source():
+    async def is_service_passed_for_source():
         # check if service has statuses "received" and "success" for source
-        source_data = [value for value in data[service] if value['source'] == source]
-        status_data = [value['status'] for value in source_data]
-        return 'received' in status_data and 'success' in status_data
+        try:
+            source_data = [value for value in data[service] if value['source'] == source]
+            status_data = [value['status'] for value in source_data]
+            return 'received' in status_data and 'success' in status_data
+        except:
+            logger.error(traceback.format_exc())
 
     if data:
         # TODO: Add functionality for UPLOAD_TIME_ELAPSED prometheus metric
         SERVICE_STATUS_COUNTER.labels(service_name=service, status=status, source_name=source).inc()
-        if is_service_passed_for_source():
+        is_passed = await is_service_passed_for_source()
+        if is_passed:
             UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service, source_name=source).observe(
                 calculate_service_time_by_source(service, source))
 
@@ -114,17 +129,17 @@ async def process_payload_status(json_msgs):
 
             # check if not request_id in Payloads Table and update columns
             try:
-                payload_dump = request_client.get(data['request_id'], postprocess='UNIQUE_VALUES')
+                payload_dump = await request_client.get(data['request_id'], postprocess='UNIQUE_VALUES')
                 logger.info(f"Sanitized Payload for DB {sanitized_payload}")
                 if payload_dump:
                     sanitized_payload_status['payload_id'] = int(payload_dump['id'])
-                    request_client.set({**data, **{'id': payload_dump['id']}})
+                    await request_client.set({**data, **{'id': payload_dump['id']}})
                     sanitized = {k: v for k, v in sanitized_payload.items() if k is not 'request_id'}
                     values = {k: v for k, v in sanitized.items() if k not in payload_dump or payload_dump[k] is None}
                     if len(values) > 0:
-                        await Payload.update.values(**values).where(
+                        loop.create_task(Payload.update.values(**values).where(
                             Payload.request_id == sanitized_payload['request_id']
-                        ).gino.status()
+                        ).gino.status())
                 else:
                     try:
                         async with db.transaction():
@@ -133,19 +148,19 @@ async def process_payload_status(json_msgs):
                             dump = created_payload.dump()
                             sanitized_payload_status['payload_id'] = dump['id']
                             logger.debug(f"DB Transaction {created_payload} - {dump}")
-                            request_client.set({**data, **{'id': dump['id']}}) # add data to redis
+                            await request_client.set({**data, **{'id': dump['id']}}) # add data to redis
                     except:
                         logger.debug(f'Failed to insert Payload into Table -- will retry update')
-                        payload_dump = request_client.get(data['request_id'], postprocess='UNIQUE_VALUES')
+                        payload_dump = await request_client.get(data['request_id'], postprocess='UNIQUE_VALUES')
                         if payload_dump:
                             sanitized_payload_status['payload_id'] = int(payload_dump['id'])
-                            request_client.set({**data, **{'id': payload_dump['id']}})
+                            await request_client.set({**data, **{'id': payload_dump['id']}})
                             sanitized = {k: v for k, v in sanitized_payload.items() if k is not 'request_id'}
                             values = {k: v for k, v in sanitized.items() if k not in payload_dump or payload_dump[k] is None}
                             if len(values) > 0:
-                                await Payload.update.values(**values).where(
+                                loop.create_task(Payload.update.values(**values).where(
                                     Payload.request_id == sanitized_payload['request_id']
-                                ).gino.status()
+                                ).gino.status())
             except:
                 logger.error(f"Failed to parse message with Error: {traceback.format_exc()}")
                 MSG_COUNT_BY_PROCESSING_STATUS.labels(status="error").inc()
@@ -154,7 +169,7 @@ async def process_payload_status(json_msgs):
             try:
                 # check if service/source is not in table
                 for column_name, table_name in zip(['service', 'source', 'status'], ['services', 'sources', 'statuses']):
-                    current_column_items = redis_client.hgetall(table_name, key_is_int=True)
+                    current_column_items = await redis_client.hgetall(table_name, key_is_int=True)
                     if column_name in data:
                         try:
                             if not data[column_name] in current_column_items.values():
@@ -163,7 +178,7 @@ async def process_payload_status(json_msgs):
                                     to_create = tables[table_name](**payload)
                                     created_value = await to_create.create()
                                     dump = created_value.dump()
-                                    redis_client.hset(table_name, mapping={dump['id']: dump['name']})
+                                    await redis_client.hset(table_name, dump['id'], dump['name'])
                                     logger.debug(f'DB Transaction {payload} - {dump}')
                                     sanitized_payload_status[f'{column_name}_id'] = dump['id']
                             else:
@@ -190,13 +205,13 @@ async def process_payload_status(json_msgs):
 
             # Increment Prometheus Metrics
             if not DISABLE_PROMETHEUS:
-                evaluate_status_metrics(**{
+                loop.create_task(evaluate_status_metrics(**{
                     'request_id': data['request_id'],
                     'service': data['service'],
                     'status': data['status'],
                     'date': sanitized_payload_status['date'],
                     'source': None if 'source' not in data else data['source']
-                })
+                }))
 
             logger.info(f"Sanitized Payload Status for DB {sanitized_payload_status}")
             # insert into database
@@ -259,7 +274,7 @@ def setup_api():
 async def update_current_services_and_sources(db):
     for table in ['services', 'sources', 'statuses']:
         res = await db.select([tables[table]]).gino.all()
-        redis_client.hset(table, mapping=dict(res))
+        await redis_client.hmset_dict(table, dict(res))
 
 
 def start():
@@ -281,6 +296,10 @@ def start():
         # setup http app and db
         logger.info("Setting up Database")
         db = loop.run_until_complete(setup_db())['db']
+
+        # setup redis client
+        logger.info('Setting up Redis')
+        loop.run_until_complete(init_redis())
 
         # update current services and sources
         logger.info("Adding current services and sources to memory")

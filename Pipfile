@@ -17,9 +17,9 @@ aiohttp = "==3.7.2"
 aiohttp-jinja2 = "==1.3.0"
 psycopg2-binary = "==2.8.6"
 asyncpg = "==0.21.0"
-redis = "==3.5.3"
 watchtower = "==1.0.0"
 boto3 = "==1.16.16"
+aioredis = "*"
 
 [dev-packages]
 pytest = "==6.1.2"
