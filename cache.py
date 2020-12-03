@@ -24,8 +24,7 @@ class Client(Redis):
     def __init__(self, pool_or_conn=None):
         if pool_or_conn:
             super(Client, self).__init__(pool_or_conn)
-        else:
-            pass
+        self._loop = asyncio.get_event_loop()
 
     def set_connection(self, pool_or_conn):
         super(Client, self).__init__(pool_or_conn)
@@ -33,15 +32,19 @@ class Client(Redis):
     def check_connection(self):
         return self._pool_or_conn is not None
 
+    async def _eval_latency(self, command, fut):
+        start = time.time()
+        await asyncio.gather(fut)
+        duration = time.time() - start
+        if command.decode() in ['HGETALL', 'LLEN', 'LRANGE']:
+            REDIS_LATENCY.labels(request_type='read').observe(duration)
+        elif command.decode() in ['HSET', 'LPUSH', 'EXPIRE']:
+            REDIS_LATENCY.labels(request_type='write').observe(duration)
+
     def execute(self, command, *args, **kwargs):
         if self.check_connection():
-            start = time.time()
             res = super(Client, self).execute(command, *args, **kwargs)
-            duration = time.time() - start
-            if command.decode() in ['HGETALL', 'LLEN', 'LRANGE']:
-                REDIS_LATENCY.labels(request_type='read').observe(duration)
-            elif command.decode() in ['HSET', 'LPUSH', 'EXPIRE']:
-                REDIS_LATENCY.labels(request_type='write').observe(duration)
+            self._loop.create_task(self._eval_latency(command, res))
             return res
         else:
             logger.error('No connection found')
