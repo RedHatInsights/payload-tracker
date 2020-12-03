@@ -1,5 +1,16 @@
+import asyncio
+from prometheus import TASKS_RUNNING_COUNT_SUMMARY
+
+
 def dump(cols, res):
     return [{k.key: v for k, v in zip(cols, row) if v is not None} for row in res]
+
+
+def get_running_tasks():
+    tasks = len([t for t in asyncio.Task.all_tasks() if not t.done()])
+    TASKS_RUNNING_COUNT_SUMMARY.observe(tasks)
+    return tasks
+
 
 # define class which uses tuple as key in key/value store
 class Triple():
@@ -10,6 +21,7 @@ class Triple():
 
     def __repr__(self):
         return f'{self.key}: {self.value}'
+
 
 # define a functional list of Triple objects
 class TripleSet():
