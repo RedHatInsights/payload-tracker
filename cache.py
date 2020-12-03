@@ -1,11 +1,13 @@
 import os
 import time
 import attr
+import secrets
 import logging
+import asyncio
 import settings
 import traceback
-from redis import Redis
 from dateutil.parser import parse
+from aioredis import Redis, create_connection
 from prometheus_client import Summary
 
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
@@ -19,34 +21,52 @@ REDIS_LATENCY = Summary('payload_tracker_redis_latency',
 
 class Client(Redis):
 
-    def __init__(self, **kwargs):
-        super(Client, self).__init__(**kwargs)
+    def __init__(self, pool_or_conn=None):
+        if pool_or_conn:
+            super(Client, self).__init__(pool_or_conn)
+        else:
+            pass
 
-    def execute_command(self, *args, **options):
-        command_type = args[0]
-        start = time.time()
-        res = super(Client, self).execute_command(*args, **options)
-        duration = time.time() - start
-        if command_type in ['HGETALL', 'LLEN', 'LRANGE']:
-            REDIS_LATENCY.labels(request_type='read').observe(duration)
-        elif command_type in ['HSET', 'LPUSH', 'EXPIRE']:
-            REDIS_LATENCY.labels(request_type='write').observe(duration)
-        return res
+    def set_connection(self, pool_or_conn):
+        super(Client, self).__init__(pool_or_conn)
 
-    def hgetall(self, name, key_is_int=False):
+    def check_connection(self):
+        return self._pool_or_conn is not None
+
+    def execute(self, command, *args, **kwargs):
+        if self.check_connection():
+            start = time.time()
+            res = super(Client, self).execute(command, *args, **kwargs)
+            duration = time.time() - start
+            if command.decode() in ['HGETALL', 'LLEN', 'LRANGE']:
+                REDIS_LATENCY.labels(request_type='read').observe(duration)
+            elif command.decode() in ['HSET', 'LPUSH', 'EXPIRE']:
+                REDIS_LATENCY.labels(request_type='write').observe(duration)
+            return res
+        else:
+            logger.error('No connection found')
+
+    async def hgetall(self, name, key_is_int=False):
         # Overriding this method to provide decoding
+        res = await super(Client, self).hgetall(name)
         return {k.decode() if not key_is_int else int(
-            k.decode()): v.decode() for k, v in super().hgetall(name).items()}
+            k.decode()): v.decode() for k, v in res.items()}
 
-    def lget(self, key):
+    async def lget(self, key):
         try:
-            return [item.decode() for item in self.lrange(
-                key, 0, self.llen(key) - 1)] # lrange is inclusive
+            llen = await self.llen(key)
+            lrange = await self.lrange(key, 0, llen - 1) # lrange is inclusive
+            return [item.decode() for item in lrange]
         except:
             logger.error(traceback.format_exc())
 
 
-redis_client = Client(host=REDIS_HOST, db=0, port=REDIS_PORT)
+redis_client = Client()
+
+
+async def init_redis():
+    connection = await create_connection((REDIS_HOST, REDIS_PORT))
+    redis_client.set_connection(connection)
 
 
 # Define RequestClient postprocessing function for request_client.get
@@ -83,9 +103,8 @@ def get_unique_values(data):
     return None if not len(unique_values) > 0 else unique_values
 
 
-# Define wrapper for redis_client which handles payloads in and out of the cache
 @attr.s
-class RequestClient():
+class RequestClient:
 
     POSTPROCESS_FUNCTIONS = {
         'BY_SERVICE': get_msgs_by_service,
@@ -94,7 +113,7 @@ class RequestClient():
 
     client = attr.ib()
 
-    def get(self, request_id, postprocess = None):
+    async def get(self, request_id, postprocess=None):
         def _decode(res):
             for k, v in res.items():
                 if 'date' == k:
@@ -104,8 +123,11 @@ class RequestClient():
             return res
 
         try:
-            dates = self.client.lget(request_id) # "date" is the key-value store key
-            data = {date: _decode(self.client.hgetall(request_id + date)) for date in dates}
+            tokens = await self.client.lget(request_id)
+            data = {}
+            for token in tokens:
+                entry = _decode(await self.client.hgetall(request_id + token))
+                data[entry['date']] = entry
         except:
             logger.error(traceback.format_exc())
         else:
@@ -119,8 +141,8 @@ class RequestClient():
             else:
                 return data
 
-    def is_unique(self, request_id, msg):
-        data = self.get(request_id)
+    async def is_unique(self, request_id, msg):
+        data = await self.get(request_id)
         for entry in data.values():
             unique = set()
             for k, v in entry.items():
@@ -130,24 +152,27 @@ class RequestClient():
                 return False
         return True
 
-    def set(self, msg):
+    async def set(self, msg):
         request_id = msg['request_id']
         del msg['request_id']
-        if self.is_unique(request_id, msg):
+        is_unique = await self.is_unique(request_id, msg)
+        if is_unique:
             data = {k: str(v) if v else '' for k, v in msg.items()}
             try:
-                return self.client.pipeline().hset(
-                    request_id + data['date'], mapping=data
-                ).expire(
-                    request_id + data['date'], SECONDS_TO_LIVE
-                ).lpush(
-                    request_id, data['date']
-                ).expire(
-                    request_id, SECONDS_TO_LIVE
-                ).execute()
+                hextoken = secrets.token_hex(nbytes=16)
+                pipe = self.client.pipeline()
+                fut1 = pipe.hmset_dict(request_id + hextoken, data)
+                fut2 = pipe.expire(request_id + hextoken, SECONDS_TO_LIVE)
+                fut3 = pipe.lpush(request_id, hextoken)
+                fut4 = pipe.expire(request_id, SECONDS_TO_LIVE)
+                await pipe.execute()
+                res = await asyncio.gather(fut1, fut2, fut3, fut4)
             except:
                 logger.error(traceback.format_exc())
+            else:
+                return res
         else:
             return False
+
 
 request_client = RequestClient(redis_client)

@@ -4,7 +4,6 @@ import settings
 import traceback
 from aiohttp.web import middleware
 from prometheus_client import start_http_server, Info, Counter, Summary
-from cache import redis_client, SECONDS_TO_LIVE
 
 logger = logging.getLogger(settings.APP_NAME)
 
