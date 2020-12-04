@@ -8,15 +8,11 @@ import settings
 import traceback
 from dateutil.parser import parse
 from aioredis import Redis, create_connection
-from prometheus_client import Summary
 
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
 SECONDS_TO_LIVE = int(os.environ.get('SECONDS_TO_LIVE', 100))
 logger = logging.getLogger(settings.APP_NAME)
-REDIS_LATENCY = Summary('payload_tracker_redis_latency',
-                        'Tracks latency in requests to Redis',
-                        ['request_type'])
 
 
 class Client(Redis):
@@ -24,7 +20,6 @@ class Client(Redis):
     def __init__(self, pool_or_conn=None):
         if pool_or_conn:
             super(Client, self).__init__(pool_or_conn)
-        self._loop = asyncio.get_event_loop()
 
     def set_connection(self, pool_or_conn):
         super(Client, self).__init__(pool_or_conn)
@@ -32,20 +27,9 @@ class Client(Redis):
     def check_connection(self):
         return self._pool_or_conn is not None
 
-    async def _eval_latency(self, command, fut):
-        start = time.time()
-        await asyncio.gather(fut)
-        duration = time.time() - start
-        if command.decode() in ['HGETALL', 'LLEN', 'LRANGE']:
-            REDIS_LATENCY.labels(request_type='read').observe(duration)
-        elif command.decode() in ['HSET', 'LPUSH', 'EXPIRE']:
-            REDIS_LATENCY.labels(request_type='write').observe(duration)
-
     def execute(self, command, *args, **kwargs):
         if self.check_connection():
-            res = super(Client, self).execute(command, *args, **kwargs)
-            self._loop.create_task(self._eval_latency(command, res))
-            return res
+            return super(Client, self).execute(command, *args, **kwargs)
         else:
             logger.error('No connection found')
 
