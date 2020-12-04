@@ -9,7 +9,6 @@ from random import randint, shuffle
 from confluent_kafka import Producer
 
 loop = asyncio.get_event_loop()
-terminate = int(os.environ.get('DURATION', 60))
 
 statues_dict = {
     1: 'received',
@@ -52,11 +51,15 @@ def produceMessageCallback(err, msg):
 
 
 async def post_payload():
-    async def generate_payload(request_id, service, speed=0):
+    async def generate_payload(service, speed=0, **kwargs):
         for status in services_to_statuses[service]:
-            time.sleep(speed)
+            await asyncio.sleep(speed)
             print(f'Posting payload status with request_id: {request_id}')
-            payload = { 'request_id' : request_id, 'service': service, 'status': statues_dict[status] }
+            payload = {
+                **kwargs,
+                'service': service,
+                'status': statues_dict[status]
+            }
             p = Producer({'bootstrap.servers': os.environ.get('BOOTSTRAP_SERVERS', 'localhost:29092')})
             payload['date'] = str(datetime.datetime.utcnow())
             p.poll(0)
@@ -64,6 +67,9 @@ async def post_payload():
                     json.dumps(payload), callback=produceMessageCallback)
             p.flush()
     request_id = str(uuid.uuid4().hex)
+    inventory_id = str(uuid.uuid4().hex)
+    system_id = str(uuid.uuid4().hex)
+    account = str(randint(pow(10, 5), pow(10,6) - 1))
     randomized = path_two_randomized.copy()
     shuffle(randomized)
     path_two = payload_path_two.copy()
@@ -72,14 +78,23 @@ async def post_payload():
     path = randint(0, len(paths) - 1)
     speed = 0
     for service in paths[path]:
-        speed += 0.01
-        time.sleep(0.075)
-        await generate_payload(request_id, service, speed)
+        speed += 0.1
+        await generate_payload(service, speed, **{
+            'request_id': request_id,
+            'inventory_id': inventory_id,
+            'system_id': system_id,
+            'account': account
+        })
 
 
-if __name__ == '__main__':
-    start = time.time()
-    time_run = timedelta(0)
-    while time_run < timedelta(terminate):
-        loop.run_until_complete(post_payload())
-        time_run = timedelta(time.time() - start)
+start = time.time()
+time_run = timedelta(0)
+
+# load the tasks for execute
+# the time we create_tasks for should be small since tasks can be created very quickly
+while time_run < timedelta(10 ** -3):
+    loop.create_task(post_payload())
+    time_run = timedelta(time.time() - start)
+
+# execute the queue
+loop.run_until_complete(asyncio.gather(*asyncio.Task.all_tasks()))

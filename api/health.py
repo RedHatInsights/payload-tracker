@@ -11,6 +11,7 @@ import settings
 from db import db
 from kafka_consumer import consumer
 from cache import redis_client
+from app import USE_REDIS
 
 logger = logging.getLogger(settings.APP_NAME)
 DISABLE_PROMETHEUS = True if os.environ.get('DISABLE_PROMETHEUS') == "True" else False
@@ -93,17 +94,18 @@ async def search(*args, **kwargs):
         return responses.failed(f'{FAILED_MSG} with error: {err}')
 
     # check redis connection
-    logger.debug('Checking redis connection...')
-    for count in range(REDIS_RETRY_MAX):
-        try:
-            await redis_client.info()
-        except Exception as err:
-            if count == REDIS_RETRY_MAX - 1:
-                logger.error(f'{FAILED_MSG} with error: {traceback.format_exc()}')
-                return responses.failed(f'{FAILED_MSG} with error: {err}')
-            await asyncio.sleep(REDIS_COUNT_TIMEOUT)
-        else:
-            break
+    if USE_REDIS:
+        logger.debug('Checking redis connection...')
+        for count in range(REDIS_RETRY_MAX):
+            try:
+                await redis_client.info()
+            except Exception as err:
+                if count == REDIS_RETRY_MAX - 1:
+                    logger.error(f'{FAILED_MSG} with error: {traceback.format_exc()}')
+                    return responses.failed(f'{FAILED_MSG} with error: {err}')
+                await asyncio.sleep(REDIS_COUNT_TIMEOUT)
+            else:
+                break
 
     # check responsiveness of /payloads
     logger.debug('Checking connection to /v1/payloads...')

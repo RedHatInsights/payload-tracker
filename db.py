@@ -8,6 +8,7 @@ MIN_POOL_SIZE = int(os.environ.get('MIN_POOL_SIZE', 20))
 
 
 async def init_db():
+    import bakery # baked queries must be added to db before engine bind is set
     await db.set_bind('asyncpg://{}:{}@{}:{}/{}'.format(config.db_user,
                                                            config.db_password,
                                                            config.db_host,
