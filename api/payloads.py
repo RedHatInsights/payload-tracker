@@ -1,6 +1,3 @@
-from db import Payload, PayloadStatus, db
-from utils import dump, Triple, TripleSet
-from cache import redis_client
 from sqlalchemy import inspect, cast, TIMESTAMP
 from sqlalchemy.orm import Bundle
 from dateutil import parser
@@ -11,6 +8,12 @@ import operator
 import logging
 import settings
 import time
+
+from db import Payload, PayloadStatus, db, tables
+from bakery import exec_baked
+from utils import dump, Triple, TripleSet
+from cache import redis_client
+from app import USE_REDIS
 
 logger = logging.getLogger(settings.APP_NAME)
 
@@ -149,7 +152,10 @@ async def get(request_id, *args, **kwargs):
         for status in payload_statuses_dump:
             for column_name, table_name in zip(['service', 'source', 'status'], ['services', 'sources', 'statuses']):
                 if f'{column_name}_id' in status:
-                    table = await redis_client.hgetall(table_name, key_is_int=True)
+                    if USE_REDIS:
+                        table = await redis_client.hgetall(table_name, key_is_int=True)
+                    else:
+                        table = await exec_baked(table_name)
                     status[column_name] = table[status[f'{column_name}_id']]
                     del status[f'{column_name}_id']
 

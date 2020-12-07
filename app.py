@@ -13,6 +13,7 @@ import connexion
 from connexion.resolver import RestyResolver
 
 from db import init_db, db, Payload, PayloadStatus, tables
+from bakery import exec_baked
 from prometheus import (
     start_prometheus, prometheus_middleware, SERVICE_STATUS_COUNTER,
     UPLOAD_TIME_ELAPSED_BY_SERVICE, MSG_COUNT_BY_PROCESSING_STATUS, TASKS_RUNNING_COUNT_SUMMARY)
@@ -29,6 +30,7 @@ VALIDATE_REQUEST_ID_LENGTH = os.environ.get('VALIDATE_REQUEST_ID_LENGTH', 32)
 DISABLE_PROMETHEUS = True if os.environ.get('DISABLE_PROMETHEUS') == "True" else False
 MAXIMUM_RUNNING_TASKS = int(os.environ.get('MAXIMUM_RUNNING_TASKS', 50))
 METRIC_FETCH_RETRY_COUNT = int(os.environ.get('METRIC_FETCH_RETRY_COUNT', 3))
+USE_REDIS = True if os.environ.get('USE_REDIS', 'false').lower() == "true" else False
 
 # Setup logging
 logger = tracker_logging.initialize_logging()
@@ -38,6 +40,10 @@ logger.info("Starting thread pool executor and asyncio loop.")
 executor = BoundedExecutor(0, THREAD_POOL_SIZE)
 loop = asyncio.get_event_loop()
 loop.set_default_executor(executor)
+
+# create in-memory dictionary of services, sources, and statuses
+if not USE_REDIS:
+    cached_values = {}
 
 
 async def evaluate_status_metrics(**kwargs):
@@ -128,13 +134,20 @@ async def process_payload_status(json_msgs):
 
             sanitized_payload_status = {}
 
+            def get_payload():
+                if USE_REDIS:
+                    return request_client.get(data['request_id'], postprocess='UNIQUE_VALUES')
+                else:
+                    return exec_baked('UNIQUE_VALUES', **{'request_id': data['request_id']})
+
             # check if not request_id in Payloads Table and update columns
             try:
-                payload_dump = await request_client.get(data['request_id'], postprocess='UNIQUE_VALUES')
+                payload_dump = await get_payload()
                 logger.info(f"Sanitized Payload for DB {sanitized_payload}")
                 if payload_dump:
                     sanitized_payload_status['payload_id'] = int(payload_dump['id'])
-                    await request_client.set({**data, **{'id': payload_dump['id']}})
+                    if USE_REDIS:
+                        await request_client.set({**data, **{'id': payload_dump['id']}})
                     sanitized = {k: v for k, v in sanitized_payload.items() if k is not 'request_id'}
                     values = {k: v for k, v in sanitized.items() if k not in payload_dump or payload_dump[k] is None}
                     if len(values) > 0:
@@ -149,13 +162,15 @@ async def process_payload_status(json_msgs):
                             dump = created_payload.dump()
                             sanitized_payload_status['payload_id'] = dump['id']
                             logger.debug(f"DB Transaction {created_payload} - {dump}")
-                            await request_client.set({**data, **{'id': dump['id']}}) # add data to redis
+                            if USE_REDIS:
+                                await request_client.set({**data, **{'id': dump['id']}})
                     except:
                         logger.debug(f'Failed to insert Payload into Table -- will retry update')
-                        payload_dump = await request_client.get(data['request_id'], postprocess='UNIQUE_VALUES')
+                        payload_dump = await get_payload()
                         if payload_dump:
                             sanitized_payload_status['payload_id'] = int(payload_dump['id'])
-                            await request_client.set({**data, **{'id': payload_dump['id']}})
+                            if USE_REDIS:
+                                await request_client.set({**data, **{'id': payload_dump['id']}})
                             sanitized = {k: v for k, v in sanitized_payload.items() if k is not 'request_id'}
                             values = {k: v for k, v in sanitized.items() if k not in payload_dump or payload_dump[k] is None}
                             if len(values) > 0:
@@ -170,7 +185,10 @@ async def process_payload_status(json_msgs):
             try:
                 # check if service/source is not in table
                 for column_name, table_name in zip(['service', 'source', 'status'], ['services', 'sources', 'statuses']):
-                    current_column_items = await redis_client.hgetall(table_name, key_is_int=True)
+                    if USE_REDIS:
+                        current_column_items = await redis_client.hgetall(table_name, key_is_int=True)
+                    else:
+                        current_column_items = cached_values[table_name]
                     if column_name in data:
                         try:
                             if not data[column_name] in current_column_items.values():
@@ -179,7 +197,8 @@ async def process_payload_status(json_msgs):
                                     to_create = tables[table_name](**payload)
                                     created_value = await to_create.create()
                                     dump = created_value.dump()
-                                    await redis_client.hset(table_name, dump['id'], dump['name'])
+                                    if USE_REDIS:
+                                        await redis_client.hset(table_name, dump['id'], dump['name'])
                                     logger.debug(f'DB Transaction {payload} - {dump}')
                                     sanitized_payload_status[f'{column_name}_id'] = dump['id']
                             else:
@@ -190,7 +209,11 @@ async def process_payload_status(json_msgs):
                             logger.debug(f'Retrying cached value substitution for {table_name}...')
                             await asyncio.sleep(0.5)
                             try:
-                                current_column_items = await redis_client.hgetall(table_name, key_is_int=True)
+                                if USE_REDIS:
+                                    current_column_items = await redis_client.hgetall(table_name, key_is_int=True)
+                                else:
+                                    current_column_items = await exec_baked(table_name)
+                                    cached_values[table_name] = current_column_items
                                 cached_key = [k for k, v in current_column_items.items() if v == data[column_name]][0]
                                 sanitized_payload_status[f'{column_name}_id'] = cached_key
                             except:
@@ -213,7 +236,8 @@ async def process_payload_status(json_msgs):
                     continue
 
             # Increment Prometheus Metrics
-            if not DISABLE_PROMETHEUS:
+            # In order to scale up pods we rely on redis to calculate metrics, so if redis is disabled we disable the metrics
+            if not DISABLE_PROMETHEUS and USE_REDIS:
                 loop.create_task(evaluate_status_metrics(**{
                     'request_id': data['request_id'],
                     'service': data['service'],
@@ -278,7 +302,10 @@ def setup_api():
 async def update_current_services_and_sources(db):
     for table in ['services', 'sources', 'statuses']:
         res = await db.select([tables[table]]).gino.all()
-        await redis_client.hmset_dict(table, dict(res))
+        if USE_REDIS:
+            await redis_client.hmset_dict(table, dict(res))
+        else:
+            cached_values[table] = dict(res)
 
 
 def start():
@@ -301,9 +328,10 @@ def start():
         logger.info("Setting up Database")
         db = loop.run_until_complete(setup_db())['db']
 
-        # setup redis client
-        logger.info('Setting up Redis')
-        loop.run_until_complete(init_redis())
+        if USE_REDIS:
+            # setup redis client
+            logger.info('Setting up Redis')
+            loop.run_until_complete(init_redis())
 
         # update current services and sources
         logger.info("Adding current services and sources to memory")

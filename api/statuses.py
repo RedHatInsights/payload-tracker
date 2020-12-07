@@ -1,6 +1,3 @@
-from db import Payload, PayloadStatus, db
-from utils import dump
-from cache import redis_client
 from sqlalchemy import inspect, cast, TIMESTAMP
 from sqlalchemy.orm import Bundle
 from dateutil import parser
@@ -10,6 +7,12 @@ import operator
 import logging
 import settings
 import time
+
+from db import Payload, PayloadStatus, db, tables
+from bakery import exec_baked
+from utils import dump
+from cache import redis_client
+from app import USE_REDIS
 
 logger = logging.getLogger(settings.APP_NAME)
 
@@ -36,7 +39,10 @@ async def search(*args, **kwargs):
         for search_param_key in kwargs:
             if search_param_key in filters_to_integers.keys():
                 search_param_value = kwargs[search_param_key]
-                values_in_table = redis_client.hgetall(filters_to_integers[search_param_key], key_is_int=True)
+                if USE_REDIS:
+                    values_in_table = await redis_client.hgetall(filters_to_integers[search_param_key], key_is_int=True)
+                else:
+                    values_in_table = await exec_baked(filters_to_integers[search_param_key])
                 if search_param_value not in values_in_table.values():
                     stop = time.time()
                     return responses.search(0, [], stop - start)
@@ -95,7 +101,10 @@ async def search(*args, **kwargs):
         for status in statuses_dump:
             for column_name, table_name in zip(['service', 'source', 'status'], ['services', 'sources', 'statuses']):
                 if f'{column_name}_id' in status:
-                    table = await redis_client.hgetall(table_name, key_is_int=True)
+                    if USE_REDIS:
+                        table = await redis_client.hgetall(table_name, key_is_int=True)
+                    else:
+                        table = await exec_baked(table_name)
                     status[column_name] = table[status[f'{column_name}_id']]
                     del status[f'{column_name}_id']
 
