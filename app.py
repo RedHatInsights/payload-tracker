@@ -185,8 +185,16 @@ async def process_payload_status(json_msgs):
                             else:
                                 cached_key = [k for k, v in current_column_items.items() if v == data[column_name]][0]
                                 sanitized_payload_status[f'{column_name}_id'] = cached_key
-                        except Exception as err:
-                            raise err
+                        except:
+                            # catch duplicate key errors or missing values from cached_keys
+                            logger.debug(f'Retrying cached value substitution for {table_name}...')
+                            await asyncio.sleep(0.5)
+                            try:
+                                current_column_items = await redis_client.hgetall(table_name, key_is_int=True)
+                                cached_key = [k for k, v in current_column_items.items() if v == data[column_name]][0]
+                                sanitized_payload_status[f'{column_name}_id'] = cached_key
+                            except:
+                                raise
             except:
                 logger.error(f'Failed to add {column_name} with Error: {traceback.format_exc()}')
                 MSG_COUNT_BY_PROCESSING_STATUS.labels(status="error").inc()
