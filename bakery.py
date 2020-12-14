@@ -1,7 +1,26 @@
 import asyncio
 import traceback
 
-from db import db, Payload, Services, Sources, Statuses
+from sqlalchemy.orm import Bundle
+
+from utils import dump
+from db import db, Payload, PayloadStatus, Services, Sources, Statuses
+
+
+'''
+Define any necessary constants to be used in the bakery and processing functions
+'''
+
+STATUS_COLUMNS = [
+    PayloadStatus.payload_id.label('id'),
+    PayloadStatus.status_id,
+    PayloadStatus.service_id,
+    PayloadStatus.source_id,
+    PayloadStatus.date,
+    Payload.inventory_id,
+    Payload.system_id,
+    Payload.account
+]
 
 
 '''
@@ -16,6 +35,13 @@ get_sources = db.bake(Sources.query)
 get_payload_by_request_id = db.bake(
     Payload.query.where(Payload.request_id == db.bindparam('request_id'))
 )
+get_statuses_by_request_id = db.bake(
+    db.select([Bundle(PayloadStatus, *STATUS_COLUMNS)]).select_from(
+        Payload.join(
+            PayloadStatus, Payload.id == PayloadStatus.payload_id
+        )
+    ).where(Payload.request_id == db.bindparam('request_id'))
+)
 
 
 BAKERY = {
@@ -23,7 +49,8 @@ BAKERY = {
     'STATUSES': get_statuses,
     'SOURCES': get_sources,
     'PAYLOADS': get_payload_by_request_id,
-    'UNIQUE_VALUES': get_payload_by_request_id
+    'UNIQUE_VALUES': get_payload_by_request_id,
+    'BY_DATE': get_statuses_by_request_id
 }
 
 
@@ -71,12 +98,45 @@ async def process_payload_by_unique_keys(baked_query, **bound_params):
         return values
 
 
+async def process_statuses_by_date(baked_query, **bound_params):
+    '''
+    This function returns payload statuses associated with a particular request_id by date.
+
+    Parameters:
+        bound_params: This function requires the following bound_params
+            1. 'request_id': uuid
+            1. 'services': {1: 'service_a', ...}
+            2. 'sources': {1: 'source_a', ...}
+            3. 'statuses': {1: 'status_a', ...}
+
+    Returns: {datetime: {status values}, ...}
+    '''
+    try:
+        statuses_list = await baked_query.all(request_id=bound_params['request_id'])
+        statuses_dump = dump(STATUS_COLUMNS, statuses_list)
+        statuses_by_date = {}
+        for status in statuses_dump:
+            entry = status.copy()
+            for name, table in zip(['service', 'status', 'source'], ['services', 'statuses', 'sources']):
+                if f'{name}_id' in entry:
+                    entry[name] = bound_params[table][entry[f'{name}_id']]
+                    del entry[f'{name}_id']
+            # remove the tzinfo from the date value since it is not included with returned value from redis
+            entry['date'] = entry['date'].replace(tzinfo=None)
+            statuses_by_date[entry['date']] = entry
+    except Exception as err:
+        raise err
+    else:
+        return statuses_by_date
+
+
 PROCESSING_FUNCTIONS = {
     'SERVICES': process_services_statuses_sources,
     'STATUSES': process_services_statuses_sources,
     'SOURCES': process_services_statuses_sources,
     'PAYLOADS': process_payload_by_request_id,
-    'UNIQUE_VALUES': process_payload_by_unique_keys
+    'UNIQUE_VALUES': process_payload_by_unique_keys,
+    'BY_DATE': process_statuses_by_date
 }
 
 

@@ -49,39 +49,40 @@ if not USE_REDIS:
 async def evaluate_status_metrics(**kwargs):
     logger.debug(f"Processing metrics for message: {kwargs}")
     request_id, service, status, date, source = tuple(kwargs.values())
-    data = await request_client.get(request_id, postprocess='BY_SERVICE')
-
-    # validate service key is in data from redis
-    retries = 0
-    while service not in data and retries < METRIC_FETCH_RETRY_COUNT:
-        await asyncio.sleep(0.5)
+    try:
         data = await request_client.get(request_id, postprocess='BY_SERVICE')
-        retries += 1
+        # validate service key is in data from redis
+        retries = 0
+        while service not in data and retries < METRIC_FETCH_RETRY_COUNT:
+            await asyncio.sleep(0.5)
+            data = await request_client.get(request_id, postprocess='BY_SERVICE')
+            retries += 1
+    except:
+        logger.error(traceback.format_exc())
+        return
 
     def calculate_service_time_by_source(service, source):
-        try:
-            times = [values['date'] for values in data[service] if values['source'] == source]
-            times.sort()
-            return (times[-1] - times[0]).total_seconds()
-        except:
-            logger.error(traceback.format_exc())
+        times = [values['date'] for values in data[service] if values['source'] == source]
+        times.sort()
+        return (times[-1] - times[0]).total_seconds()
 
     async def is_service_passed_for_source():
         # check if service has statuses "received" and "success" for source
-        try:
-            source_data = [value for value in data[service] if value['source'] == source]
-            status_data = [value['status'] for value in source_data]
-            return 'received' in status_data and 'success' in status_data
-        except:
-            logger.error(traceback.format_exc())
+        source_data = [value for value in data[service] if value['source'] == source]
+        status_data = [value['status'] for value in source_data]
+        return 'received' in status_data and 'success' in status_data
 
     if data:
-        # TODO: Add functionality for UPLOAD_TIME_ELAPSED prometheus metric
-        SERVICE_STATUS_COUNTER.labels(service_name=service, status=status, source_name=source).inc()
-        is_passed = await is_service_passed_for_source()
-        if is_passed:
-            UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service, source_name=source).observe(
-                calculate_service_time_by_source(service, source))
+        try:
+            # TODO: Add functionality for UPLOAD_TIME_ELAPSED prometheus metric
+            SERVICE_STATUS_COUNTER.labels(service_name=service, status=status, source_name=source).inc()
+            is_passed = await is_service_passed_for_source()
+            if is_passed:
+                UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service, source_name=source).observe(
+                    calculate_service_time_by_source(service, source))
+        except:
+            logger.error(traceback.format_exc())
+            return
 
 
 async def process_payload_status(json_msgs):
