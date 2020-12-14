@@ -127,6 +127,15 @@ python manual_tests/mock_loaddtest.py
 ```
 
 
+Running Tests
+--------------------
+Tests can be running using the `pipenv` cli. The `Pipfile` included in the repo has a
+script for running tests, which can be called using `pipenv run tests`. This will run unit tests
+as well as code coverage. Similarly, the `Pipfile` includes a script for running the flake8 linter,
+which can be called using `pipenv run linter`. Each of these three tests will be run by Jenkins
+when a new PR is opened and when PRs are merged to master.
+
+
 Contributing
 --------------------
 All outstanding issues or feature requests should be filed as Issues on this Github
