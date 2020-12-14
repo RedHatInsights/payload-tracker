@@ -59,6 +59,13 @@ Prequisites
 --------------------
     docker
     docker-compose
+    python == 3.6.5
+
+
+Requirements
+--------------------
+    aiohttp <= 3.7.2
+    aiokafka == 0.5.2
 
 
 Queue
