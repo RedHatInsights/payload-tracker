@@ -48,7 +48,7 @@ if not USE_REDIS:
 
 async def evaluate_status_metrics(**kwargs):
     logger.debug(f"Processing metrics for message: {kwargs}")
-    request_id, service, status, date, source = tuple(kwargs.values())
+    request_id, service, status, source = tuple(kwargs.values())
     try:
         data = await request_client.get(request_id, postprocess='BY_SERVICE')
         # validate service key is in data from redis
@@ -243,7 +243,6 @@ async def process_payload_status(json_msgs):
                     'request_id': data['request_id'],
                     'service': data['service'],
                     'status': data['status'],
-                    'date': sanitized_payload_status['date'],
                     'source': None if 'source' not in data else data['source']
                 }))
 
