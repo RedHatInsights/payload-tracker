@@ -41,9 +41,8 @@ executor = BoundedExecutor(0, THREAD_POOL_SIZE)
 loop = asyncio.get_event_loop()
 loop.set_default_executor(executor)
 
-# create in-memory dictionary of services, sources, and statuses
-if not USE_REDIS:
-    cached_values = {}
+# create in-memory dictionary of services, sources, and statuses for when redis is disabled
+cached_values = {}
 
 
 async def evaluate_status_metrics(**kwargs):
