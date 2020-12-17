@@ -59,7 +59,7 @@ class Client(Redis):
     async def lget(self, key):
         try:
             llen = await self.llen(key)
-            lrange = await self.lrange(key, 0, llen - 1) # lrange is inclusive
+            lrange = await self.lrange(key, 0, llen - 1)  # lrange is inclusive
             return [item.decode() for item in lrange]
         except:
             raise
@@ -79,7 +79,7 @@ def get_msgs_by_service(data):
     msgs_by_service = {}
     try:
         for values in data.values():
-            entry = values.copy() # ensure we have "source" defined
+            entry = values.copy()  # ensure we have "source" defined
             if 'source' not in values:
                 entry['source'] = None
             service = entry['service']
@@ -144,7 +144,7 @@ class RequestClient:
         try:
             request_hash = await self.get_request_id_hash(request_id)
             tokens = await self.client.lget(request_hash)
-            assert len(tokens) > 0 # if no tokens are found then retry with the database
+            assert len(tokens) > 0  # if no tokens are found then retry with the database
             data = {}
             for token in tokens:
                 pipe = self.client.pipeline()
@@ -154,20 +154,24 @@ class RequestClient:
                 await pipe.execute()
                 res = await asyncio.gather(fut1, fut2, fut3)
                 entry = _decode(res[0])
-                data[entry['date']] = entry # this line validates the results are in the proper format
+                data[entry['date']] = entry  # validates the results are in the proper format
         except:
             logger.debug('Cache could not determine values. Retrying with database...')
             try:
                 # collect data from database
                 data = await exec_baked('BY_DATE', **{
                     'request_id': request_id,
-                    **{key: (await self.client.hgetall(key, key_is_int=True)) for key in ['services', 'statuses', 'sources']}
+                    **{key: (
+                        await self.client.hgetall(key, key_is_int=True)
+                    ) for key in ['services', 'statuses', 'sources']}
                 })
 
                 # lazy-load the data back into the cache
                 request_hash = secrets.token_hex(nbytes=16)
                 for entry in data.values():
-                    payload = {'request_id': request_id, **{k: str(v) if v else '' for k, v in entry.items()}}
+                    payload = {
+                        'request_id': request_id,
+                        **{k: str(v) if v else '' for k, v in entry.items()}}
                     hextoken = secrets.token_hex(nbytes=16)
                     pipe = self.client.pipeline()
                     fut1 = pipe.hmset_dict(request_hash + hextoken, payload)

@@ -1,7 +1,6 @@
 import os
 import logging
 import settings
-import traceback
 from aiohttp.web import middleware
 from prometheus_client import start_http_server, Info, Counter, Summary
 
@@ -22,7 +21,8 @@ API_RESPONSES_COUNT_BY_TYPE = Counter('payload_tracker_api_response_count',
                                       'Counter for distinct response types from API',
                                       ['status'])
 MSG_COUNT_BY_PROCESSING_STATUS = Counter('payload_tracker_msg_count',
-                                         'Counter for msgs processed by ["consumed", "success", "error"]',
+                                         'Counter for msgs processed by '
+                                         '["consumed", "success", "error"]',
                                          ['status'])
 TASKS_RUNNING_COUNT_SUMMARY = Summary('payload_tracker_tasks_running',
                                       'Tracks number of concurrently running tasks')

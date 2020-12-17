@@ -8,7 +8,8 @@ MIN_POOL_SIZE = int(os.environ.get('MIN_POOL_SIZE', 20))
 
 
 async def init_db():
-    import bakery # baked queries must be added to db before engine bind is set
+    # baked queries must be added to db before engine bind is set
+    import bakery # noqa
     await db.set_bind('asyncpg://{}:{}@{}:{}/{}'.format(config.db_user,
                                                            config.db_password,
                                                            config.db_host,
@@ -83,4 +84,5 @@ class Statuses(db.Model):
         return {k: v for k, v in self.__values__.items() if v is not None}
 
 
-tables = {table.__tablename__: table for table in [Payload, PayloadStatus, Services, Sources, Statuses]}
+tables = {table.__tablename__: table for table in [
+    Payload, PayloadStatus, Services, Sources, Statuses]}

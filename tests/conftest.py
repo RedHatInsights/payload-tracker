@@ -9,11 +9,9 @@ import asyncio
 import logging
 
 from random import randint
-from connexion import AioHttpApp
 from sqlalchemy.orm import Bundle
 from aioredis import create_connection
 from datetime import datetime, timezone
-from connexion.resolver import RestyResolver
 
 import db
 import settings
@@ -121,7 +119,7 @@ def mock_payload():
         'request_id': uuid.uuid4().hex,
         'inventory_id': uuid.uuid4().hex,
         'system_id': uuid.uuid4().hex,
-        'account': randint(pow(10, 5), pow(10,6) - 1),
+        'account': randint(pow(10, 5), pow(10, 6) - 1),
         'service': ''.join([random.choice(string.ascii_uppercase) for _ in range(6)]),
         'source': ''.join([random.choice(string.ascii_uppercase) for _ in range(6)]),
         'status': ''.join([random.choice(string.ascii_uppercase) for _ in range(6)]),

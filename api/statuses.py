@@ -8,7 +8,7 @@ import logging
 import settings
 import time
 
-from db import Payload, PayloadStatus, db, tables
+from db import Payload, PayloadStatus, db
 from bakery import exec_baked
 from utils import dump
 from cache import redis_client
@@ -30,7 +30,8 @@ async def search(*args, **kwargs):
 
         # Base queries
         status_columns = [c for c in inspect(PayloadStatus).columns if c.name != 'payload_id']
-        statuses_query = db.select([Bundle(PayloadStatus, *status_columns), Bundle(Payload, Payload.request_id)])
+        statuses_query = db.select([
+            Bundle(PayloadStatus, *status_columns), Bundle(Payload, Payload.request_id)])
         statuses_count = db.select([db.func.count(Bundle(PayloadStatus, PayloadStatus.payload_id))])
 
         # convert string-base queries to integer equivalents
@@ -40,7 +41,8 @@ async def search(*args, **kwargs):
             if search_param_key in filters_to_integers.keys():
                 search_param_value = kwargs[search_param_key]
                 if USE_REDIS:
-                    values_in_table = await redis_client.hgetall(filters_to_integers[search_param_key], key_is_int=True)
+                    values_in_table = await redis_client.hgetall(
+                        filters_to_integers[search_param_key], key_is_int=True)
                 else:
                     values_in_table = await exec_baked(filters_to_integers[search_param_key])
                 if search_param_value not in values_in_table.values():
@@ -73,7 +75,13 @@ async def search(*args, **kwargs):
                     for query in [statuses_query, statuses_count]:
                         query.append_whereclause(
                             date_group_fn(
-                                cast(getattr(PayloadStatus, date_field), TIMESTAMP(timezone=tzutc())), the_date))
+                                cast(
+                                    getattr(PayloadStatus, date_field),
+                                    TIMESTAMP(timezone=tzutc())
+                                ),
+                                the_date
+                            )
+                        )
 
         # Then apply page size and offset
         sort_func = getattr(db, kwargs['sort_dir'])
@@ -99,7 +107,9 @@ async def search(*args, **kwargs):
 
         # replace integer values for service and source
         for status in statuses_dump:
-            for column_name, table_name in zip(['service', 'source', 'status'], ['services', 'sources', 'statuses']):
+            for column_name, table_name in zip(
+                ['service', 'source', 'status'], ['services', 'sources', 'statuses']
+            ):
                 if f'{column_name}_id' in status:
                     if USE_REDIS:
                         table = await redis_client.hgetall(table_name, key_is_int=True)

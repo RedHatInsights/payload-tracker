@@ -60,7 +60,8 @@ async def post_payload():
                 'service': service,
                 'status': statues_dict[status]
             }
-            p = Producer({'bootstrap.servers': os.environ.get('BOOTSTRAP_SERVERS', 'localhost:29092')})
+            p = Producer({
+                'bootstrap.servers': os.environ.get('BOOTSTRAP_SERVERS', 'localhost:29092')})
             payload['date'] = str(datetime.datetime.utcnow())
             p.poll(0)
             p.produce(os.environ.get('PAYLOAD_TRACKER_TOPIC', 'payload_tracker'),
@@ -69,7 +70,7 @@ async def post_payload():
     request_id = str(uuid.uuid4().hex)
     inventory_id = str(uuid.uuid4().hex)
     system_id = str(uuid.uuid4().hex)
-    account = str(randint(pow(10, 5), pow(10,6) - 1))
+    account = str(randint(pow(10, 5), pow(10, 6) - 1))
     randomized = path_two_randomized.copy()
     shuffle(randomized)
     path_two = payload_path_two.copy()

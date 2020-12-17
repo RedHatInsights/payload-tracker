@@ -1,9 +1,7 @@
 import os
-import time
 from dateutil import parser
 from dateutil.utils import default_tzinfo
 from dateutil.tz import tzutc
-from datetime import timedelta, datetime
 import traceback
 import json
 
@@ -16,7 +14,7 @@ from db import init_db, db, Payload, PayloadStatus, tables
 from bakery import exec_baked
 from prometheus import (
     start_prometheus, prometheus_middleware, SERVICE_STATUS_COUNTER,
-    UPLOAD_TIME_ELAPSED_BY_SERVICE, MSG_COUNT_BY_PROCESSING_STATUS, TASKS_RUNNING_COUNT_SUMMARY)
+    UPLOAD_TIME_ELAPSED_BY_SERVICE, MSG_COUNT_BY_PROCESSING_STATUS)
 from utils import get_running_tasks
 import tracker_logging
 from kafka_consumer import consumer
@@ -74,11 +72,13 @@ async def evaluate_status_metrics(**kwargs):
     if data:
         try:
             # TODO: Add functionality for UPLOAD_TIME_ELAPSED prometheus metric
-            SERVICE_STATUS_COUNTER.labels(service_name=service, status=status, source_name=source).inc()
+            SERVICE_STATUS_COUNTER.labels(
+                service_name=service, status=status, source_name=source).inc()
             is_passed = await is_service_passed_for_source()
             if is_passed:
-                UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(service_name=service, source_name=source).observe(
-                    calculate_service_time_by_source(service, source))
+                UPLOAD_TIME_ELAPSED_BY_SERVICE.labels(
+                    service_name=service, source_name=source
+                ).observe(calculate_service_time_by_source(service, source))
         except:
             logger.error(traceback.format_exc())
             return
@@ -144,12 +144,15 @@ async def process_payload_status(json_msgs):
             try:
                 payload_dump = await get_payload()
                 logger.info(f"Sanitized Payload for DB {sanitized_payload}")
-                if payload_dump:
+                if len(payload_dump) > 0:
                     sanitized_payload_status['payload_id'] = int(payload_dump['id'])
                     if USE_REDIS:
                         await request_client.set({**data, **{'id': payload_dump['id']}})
-                    sanitized = {k: v for k, v in sanitized_payload.items() if k is not 'request_id'}
-                    values = {k: v for k, v in sanitized.items() if k not in payload_dump or payload_dump[k] is None}
+                    sanitized = {k: v for k, v in sanitized_payload.items() if k != 'request_id'}
+                    values = {
+                        k: v for k, v in sanitized.items() if (
+                            k not in payload_dump or payload_dump[k] is None
+                        )}
                     if len(values) > 0:
                         loop.create_task(Payload.update.values(**values).where(
                             Payload.request_id == sanitized_payload['request_id']
@@ -165,14 +168,18 @@ async def process_payload_status(json_msgs):
                             if USE_REDIS:
                                 await request_client.set({**data, **{'id': dump['id']}})
                     except:
-                        logger.debug(f'Failed to insert Payload into Table -- will retry update')
+                        logger.debug('Failed to insert Payload into Table -- will retry update')
                         payload_dump = await get_payload()
-                        if payload_dump:
+                        if len(payload_dump) > 0:
                             sanitized_payload_status['payload_id'] = int(payload_dump['id'])
                             if USE_REDIS:
                                 await request_client.set({**data, **{'id': payload_dump['id']}})
-                            sanitized = {k: v for k, v in sanitized_payload.items() if k is not 'request_id'}
-                            values = {k: v for k, v in sanitized.items() if k not in payload_dump or payload_dump[k] is None}
+                            sanitized = {
+                                k: v for k, v in sanitized_payload.items() if k != 'request_id'}
+                            values = {
+                                k: v for k, v in sanitized.items() if (
+                                    k not in payload_dump or payload_dump[k] is None
+                                )}
                             if len(values) > 0:
                                 loop.create_task(Payload.update.values(**values).where(
                                     Payload.request_id == sanitized_payload['request_id']
@@ -184,9 +191,12 @@ async def process_payload_status(json_msgs):
 
             try:
                 # check if service/source is not in table
-                for column_name, table_name in zip(['service', 'source', 'status'], ['services', 'sources', 'statuses']):
+                for column_name, table_name in zip(
+                    ['service', 'source', 'status'], ['services', 'sources', 'statuses']
+                ):
                     if USE_REDIS:
-                        current_column_items = await redis_client.hgetall(table_name, key_is_int=True)
+                        current_column_items = await redis_client.hgetall(
+                            table_name, key_is_int=True)
                     else:
                         current_column_items = cached_values[table_name]
                     if column_name in data:
@@ -202,7 +212,9 @@ async def process_payload_status(json_msgs):
                                     logger.debug(f'DB Transaction {payload} - {dump}')
                                     sanitized_payload_status[f'{column_name}_id'] = dump['id']
                             else:
-                                cached_key = [k for k, v in current_column_items.items() if v == data[column_name]][0]
+                                cached_key = [k for k, v in current_column_items.items() if (
+                                    v == data[column_name]
+                                )][0]
                                 sanitized_payload_status[f'{column_name}_id'] = cached_key
                         except:
                             # catch duplicate key errors or missing values from cached_keys
@@ -210,11 +222,14 @@ async def process_payload_status(json_msgs):
                             await asyncio.sleep(0.5)
                             try:
                                 if USE_REDIS:
-                                    current_column_items = await redis_client.hgetall(table_name, key_is_int=True)
+                                    current_column_items = await redis_client.hgetall(
+                                        table_name, key_is_int=True)
                                 else:
                                     current_column_items = await exec_baked(table_name)
                                     cached_values[table_name] = current_column_items
-                                cached_key = [k for k, v in current_column_items.items() if v == data[column_name]][0]
+                                cached_key = [k for k, v in current_column_items.items() if (
+                                    v == data[column_name]
+                                )][0]
                                 sanitized_payload_status[f'{column_name}_id'] = cached_key
                             except:
                                 raise
@@ -228,7 +243,8 @@ async def process_payload_status(json_msgs):
 
             if 'date' in data:
                 try:
-                    sanitized_payload_status['date'] = default_tzinfo(parser.parse(data['date']), tzutc()).astimezone(tzutc())
+                    sanitized_payload_status['date'] = default_tzinfo(
+                        parser.parse(data['date']), tzutc()).astimezone(tzutc())
                 except:
                     the_error = traceback.format_exc()
                     logger.error(f"Error parsing date: {the_error}")
@@ -236,7 +252,8 @@ async def process_payload_status(json_msgs):
                     continue
 
             # Increment Prometheus Metrics
-            # In order to scale up pods we rely on redis to calculate metrics, so if redis is disabled we disable the metrics
+            # In order to scale up pods we rely on redis to calculate metrics
+            # So if redis is disabled, we disable the metrics
             if not DISABLE_PROMETHEUS and USE_REDIS:
                 loop.create_task(evaluate_status_metrics(**{
                     'request_id': data['request_id'],
@@ -246,6 +263,7 @@ async def process_payload_status(json_msgs):
                 }))
 
             logger.info(f"Sanitized Payload Status for DB {sanitized_payload_status}")
+
             # insert into database
             async def insert_status(sanitized_payload_status):
                 async with db.transaction():
@@ -257,10 +275,10 @@ async def process_payload_status(json_msgs):
                 await insert_status(sanitized_payload_status)
             except Exception as err:
                 logger.debug(f'Failed to insert PayloadStatus with ERROR: {err}')
-                # First, we assume there is no partition. If there is a further error, simply try reinsertion
+                # We assume there is no partition. If there is a further error, try reinsertion
                 try:
                     date = sanitized_payload_status['date']
-                    await db.bind.scalar(f'SELECT create_partition(\'{date}\'::DATE, \'{date}\'::DATE + INTERVAL \'1 DAY\');')
+                    await db.bind.scalar(f'SELECT create_partition(\'{date}\'::DATE, \'{date}\'::DATE + INTERVAL \'1 DAY\');')  # noqa
                     await insert_status(sanitized_payload_status)
                 except Exception as err:
                     logger.debug(f'Failed to insert PayloadStatus with ERROR: {err}')
