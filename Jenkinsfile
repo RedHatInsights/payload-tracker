@@ -18,7 +18,7 @@ node {
 
 
 def runStages() {
-    openShiftUtils.withNode(image: "docker-registry.default.svc:5000/jenkins/jenkins-slave-base-centos7-python36:latest") {
+    openShiftUtils.withNode(image: "python:3.6") {
         // check out source again to get it in this node's workspace
         scmVars = checkout scm
 
