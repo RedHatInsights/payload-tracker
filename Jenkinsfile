@@ -31,8 +31,8 @@ node {
 def runStages() {
     podTemplate(label: podLabel, cloud: "openshift", containers: [
         containerTemplate(
-            name: dbContainer
-            image: "docker-registry.default.svc:5000/buildfactory/payload-tracker-db:latest"
+            name: dbContainer,
+            image: "docker-registry.default.svc:5000/buildfactory/payload-tracker-db:latest",
             ttyEnabled: true,
             envVars: [
                 containerEnvVar(key: 'POSTGRESQL_USER', value: dbUser),
@@ -48,7 +48,7 @@ def runStages() {
         ),
         containerTemplate(
             name: redisContainer,
-            image: "docker-registry.default.svc:5000/buildfactory/payload-tracker-redis:latest"
+            image: "docker-registry.default.svc:5000/buildfactory/payload-tracker-redis:latest",
             ttyEnabled: true,
             resourceRequestCpu: '50m',
             resourceLimitCpu: '200m',
