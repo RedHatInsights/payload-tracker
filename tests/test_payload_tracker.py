@@ -45,9 +45,9 @@ async def test_payload_process_status_without_redis(
         'UNIQUE_VALUES': get_payload_by_request_id})
     mocker.patch('app.USE_REDIS', False)
     mocker.patch('app.cached_values', {
-        'services': {'id': 1, 'name': payload_dump['service']},
-        'sources': {'id': 1, 'name': payload_dump['source']},
-        'statuses': {'id': 1, 'name': payload_dump['status']}
+        'services': {1: payload_dump['service']},
+        'sources': {1: payload_dump['source']},
+        'statuses': {1: payload_dump['status']}
     })
     await process_payload_status([mock_msg])
     payload = await get_payload_by_request_id.first(request_id=payload_dump['request_id'])
@@ -94,3 +94,24 @@ async def test_evaluate_status_metrics_with_valid_input(mocker, mock_payload, mo
         'payload_tracker_upload_time_by_service_elapsed_created',
         {'service_name': mock_kwargs['service'], 'source_name': mock_kwargs['source']}
     ) is not None
+
+
+async def test_request_client_set_aware_and_unaware_datetimes(
+    mocker, mock_app, mock_payload, cache,
+    get_statuses_by_request_id, request_cache
+):
+    mocker.patch('app.evaluate_status_metrics', AsyncMock())
+    mocker.patch('bakery.BAKERY', {'BY_DATE': get_statuses_by_request_id})
+
+    # pass timezone aware payload
+    mock_payload_aware = {**mock_payload, 'status': 'received'}
+    mock_msg_aware = type('MockMsg', (object,), {'value': json.dumps(mock_payload_aware)})
+    await process_payload_status([mock_msg_aware])
+
+    # pass timezone unaware payload
+    mock_payload_unaware = {**mock_payload, 'date': str(datetime.now()), 'status': 'success'}
+    mock_msg_unaware = type('MockMsg', (object,), {'value': json.dumps(mock_payload_unaware)})
+    await process_payload_status([mock_msg_unaware])
+
+    mock_kwargs = {v: mock_payload_unaware[v] for v in ['request_id', 'service', 'status', 'source']}
+    await evaluate_status_metrics(**mock_kwargs)

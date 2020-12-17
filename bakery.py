@@ -121,8 +121,6 @@ async def process_statuses_by_date(baked_query, **bound_params):
                 if f'{name}_id' in entry:
                     entry[name] = bound_params[table][entry[f'{name}_id']]
                     del entry[f'{name}_id']
-            # remove the tzinfo from the date value
-            entry['date'] = entry['date'].replace(tzinfo=None)
             statuses_by_date[entry['date']] = entry
     except Exception as err:
         raise err
