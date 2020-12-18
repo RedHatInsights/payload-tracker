@@ -31,6 +31,10 @@ def runStages() {
             name: 'payload-tracker',
             image: 'python:3.6.5',
             ttyEnabled: true,
+            envVars: [
+                'DB_HOST': dbContainer,
+                'REDIS_HOST': redisContainer
+            ],
             command: 'cat',
             resourceRequestCpu: '300m',
             resourceLimitCpu: '1000m',
@@ -80,19 +84,14 @@ def runStages() {
                 }
 
                 stage('UnitTest') {
-                    withEnv([
-                        'DB_HOST': dbContainer,
-                        'REDIS_HOST': redisContainer
-                    ]) {
-                        gitUtils.withStatusContext("unittest") {
-                            sh (
-                                "${pipelineVars.userPath}/pipenv run python -m pytest " +
-                                    "--log-cli-level=debug --junitxml=junit.xml --cov-config=.coveragerc " +
-                                    "--cov=. --cov-report html tests/ -s -v"
-                            )
-                        }
-                        junit 'junit.xml'
+                    gitUtils.withStatusContext("unittest") {
+                        sh (
+                            "${pipelineVars.userPath}/pipenv run python -m pytest " +
+                                "--log-cli-level=debug --junitxml=junit.xml --cov-config=.coveragerc " +
+                                "--cov=. --cov-report html tests/ -s -v"
+                        )
                     }
+                    junit 'junit.xml'
                 }
 
                 stage('Code coverage') {
