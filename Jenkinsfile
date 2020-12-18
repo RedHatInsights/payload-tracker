@@ -32,8 +32,8 @@ def runStages() {
             image: 'python:3.6.5',
             ttyEnabled: true,
             envVars: [
-                'DB_HOST': dbContainer,
-                'REDIS_HOST': redisContainer
+                containerEnvVar(key:'DB_HOST', value: dbContainer),
+                containerEnvVar(key:'REDIS_HOST', value: redisContainer)
             ],
             command: 'cat',
             resourceRequestCpu: '300m',
