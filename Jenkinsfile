@@ -59,7 +59,7 @@ def runStages() {
             scmVars = checkout scm
 
             stage('Pip install') {
-                pythonUtils.runPipenvInstall(scmVars: scmVars)
+                pythonUtils.runPipenvInstall(scmVars: scmVars, installPipenv: false)
             }
 
             stage('Lint') {
