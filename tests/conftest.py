@@ -21,19 +21,15 @@ import settings
 from bakery import STATUS_COLUMNS
 from cache import Client, RequestClient
 
-# allow passing of host variable for Jenkins
-DB_HOST = os.environ.get('DB_HOST')
-REDIS_HOST = os.environ.get('REDIS_HOST')
-
 TEST_ENV_VARS = {
     'API_HOST': 'localhost',
     'API_PORT': '8080',
-    'DB_HOST': 'localhost' if not DB_HOST else DB_HOST,
+    'DB_HOST': 'localhost',
     'DB_PORT': '5432',
     'DB_USER': 'payloadtracker',
     'DB_PASSWORD': 'payloadtracker',
     'DB_NAME': 'payloadtracker',
-    'REDIS_HOST': 'localhost' if not REDIS_HOST else REDIS_HOST,
+    'REDIS_HOST': 'localhost',
     'REDIS_PORT': '6379',
     'USE_REDIS': 'true'
 }

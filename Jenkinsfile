@@ -31,10 +31,6 @@ def runStages() {
             name: 'payload-tracker',
             image: 'python:3.6.5',
             ttyEnabled: true,
-            envVars: [
-                containerEnvVar(key:'DB_HOST', value: dbContainer),
-                containerEnvVar(key:'REDIS_HOST', value: redisContainer)
-            ],
             command: 'cat',
             resourceRequestCpu: '300m',
             resourceLimitCpu: '1000m',
