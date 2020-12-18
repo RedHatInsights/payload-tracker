@@ -1,6 +1,3 @@
-import asyncio
-import traceback
-
 from sqlalchemy.orm import Bundle
 
 from utils import dump
@@ -67,6 +64,7 @@ def test_function(baked_query, **bound_params):
 
 '''
 
+
 async def process_services_statuses_sources(baked_query, **bound_params):
     try:
         table_results_as_objs = await baked_query.all()
@@ -117,11 +115,13 @@ async def process_statuses_by_date(baked_query, **bound_params):
         statuses_by_date = {}
         for status in statuses_dump:
             entry = status.copy()
-            for name, table in zip(['service', 'status', 'source'], ['services', 'statuses', 'sources']):
+            for name, table in zip(
+                ['service', 'status', 'source'], ['services', 'statuses', 'sources']
+            ):
                 if f'{name}_id' in entry:
                     entry[name] = bound_params[table][entry[f'{name}_id']]
                     del entry[f'{name}_id']
-            # remove the tzinfo from the date value since it is not included with returned value from redis
+            # remove the tzinfo from the date value
             entry['date'] = entry['date'].replace(tzinfo=None)
             statuses_by_date[entry['date']] = entry
     except Exception as err:
@@ -144,6 +144,8 @@ PROCESSING_FUNCTIONS = {
 Use this function to return the results of the processing function
 The key provided MUST match both the PROCESSING_FUNCTION AND BAKERY key
 '''
+
+
 async def exec_baked(key, **bound_params):
     try:
         key = key.upper()

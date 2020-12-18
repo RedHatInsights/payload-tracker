@@ -9,7 +9,7 @@ import logging
 import settings
 import time
 
-from db import Payload, PayloadStatus, db, tables
+from db import Payload, PayloadStatus, db
 from bakery import exec_baked
 from utils import dump, Triple, TripleSet
 from cache import redis_client
@@ -50,7 +50,7 @@ async def search(*args, **kwargs):
                     the_date = parser.parse(kwargs[date_field + date_group_str]).astimezone(tzutc())
                     payload_query.append_whereclause(
                         date_group_fn(
-                            cast(getattr(Payload, date_field), TIMESTAMP(timezone=tzutc())), the_date))
+                            cast(getattr(Payload, date_field), TIMESTAMP(timezone=tzutc())), the_date))  # noqa
 
         # Get the count before we apply the page size and offset
         payloads_count = await conn.scalar(payload_query.alias().count())
@@ -84,7 +84,10 @@ def _get_durations(payloads):
             service, date, source = tuple({
                 'service': payload['service'], 'date': payload['date'],
                 'source': 'undefined' if 'source' not in payload else payload['source']}.values())
-            if (service, source) not in services_by_source.keys() or date not in services_by_source.values():
+            if (
+                (service, source) not in services_by_source.keys() or (
+                    date not in services_by_source.values())
+            ):
                 services_by_source.append(Triple(service, source, date))
 
         # compute duration for each bucket of service and source
@@ -110,16 +113,15 @@ def _get_durations(payloads):
 
 async def get(request_id, *args, **kwargs):
 
-    payload = None
     payload_statuses = None
-    payload_dump = []
     payload_statuses_dump = []
 
-    status_columns = [c for c in inspect(PayloadStatus).columns if c.name is not 'payload_id']
+    status_columns = [c for c in inspect(PayloadStatus).columns if c.name != 'payload_id']
     payload_columns = [c for c in inspect(Payload).columns if c.name in [
         'request_id', 'account', 'inventory_id', 'system_id'
     ]]
-    statuses_query = db.select([Bundle(PayloadStatus, *status_columns), Bundle(Payload, *payload_columns)])
+    statuses_query = db.select([
+        Bundle(PayloadStatus, *status_columns), Bundle(Payload, *payload_columns)])
 
     # initialize connection
     async with db.bind.acquire() as conn:
@@ -136,7 +138,8 @@ async def get(request_id, *args, **kwargs):
         )
 
         if kwargs['sort_by'] in ['source', 'service', 'status']:
-            statuses_query = statuses_query.order_by(sort_func(f'{kwargs["sort_by"]}_id'))
+            statuses_query = statuses_query.order_by(
+                sort_func(f'{kwargs["sort_by"]}_id'))
         else:
             statuses_query = statuses_query.order_by(sort_func(kwargs['sort_by']))
 
@@ -150,7 +153,9 @@ async def get(request_id, *args, **kwargs):
 
         # replace integer values for service and source
         for status in payload_statuses_dump:
-            for column_name, table_name in zip(['service', 'source', 'status'], ['services', 'sources', 'statuses']):
+            for column_name, table_name in zip(
+                ['service', 'source', 'status'], ['services', 'sources', 'statuses']
+            ):
                 if f'{column_name}_id' in status:
                     if USE_REDIS:
                         table = await redis_client.hgetall(table_name, key_is_int=True)

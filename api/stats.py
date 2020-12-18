@@ -18,7 +18,7 @@ async def search(*args, **kwargs):
 
     # Only get the past 24 hours for right now
     # Trying to calculate this against the whole database is too much
-    twenty_four_hours = datetime.datetime.now() - datetime.timedelta(hours = 24)
+    twenty_four_hours = datetime.datetime.now() - datetime.timedelta(hours=24)
     payload_query.append_whereclause(
         operator.ge(Payload.date, twenty_four_hours)
     )

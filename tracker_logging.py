@@ -3,7 +3,6 @@ import json
 import os
 import sys
 import traceback
-import asyncio
 from logstash_formatter import LogstashFormatterV1
 import settings
 import watchtower
@@ -90,9 +89,9 @@ def initialize_logging():
                 logging.root.addHandler(CWStreamHandler())
     else:
         if (settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY):
-            handlers=[DevStreamHandler(), CWStreamHandler()]
+            handlers = [DevStreamHandler(), CWStreamHandler()]
         else:
-            handlers=[DevStreamHandler()]
+            handlers = [DevStreamHandler()]
         logging.basicConfig(level=logging.getLevelName(settings.DEV_LOG_LEVEL),
                             format=settings.DEV_LOG_MSG_FORMAT,
                             datefmt=settings.DEV_LOG_DATE_FORMAT,

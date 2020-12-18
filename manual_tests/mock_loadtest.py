@@ -10,7 +10,7 @@ def generatePayloads():
     request_id = str(uuid.uuid4().hex)
     inventory_id = str(uuid.uuid4().hex)
     system_id = str(uuid.uuid4().hex)
-    account = str(randint(pow(10, 5), pow(10,6) - 1))
+    account = str(randint(pow(10, 5), pow(10, 6) - 1))
     print(f'request_id: {request_id}')
     return [
         {

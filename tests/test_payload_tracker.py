@@ -1,22 +1,23 @@
 import json
-import attr
 import pytest
 
 from unittest.mock import MagicMock
 from prometheus_client import REGISTRY
 from datetime import datetime, timezone
 
-from db import Payload, PayloadStatus
 from app import process_payload_status, evaluate_status_metrics
 
 pytestmark = pytest.mark.asyncio
+
 
 class AsyncMock(MagicMock):
     async def __call__(self, *args, **kwargs):
         return super(AsyncMock, self).__call__(*args, **kwargs)
 
 
-async def test_process_payload_status_without_metrics(mocker, mock_msg, mock_app, get_statuses_by_request_id):
+async def test_process_payload_status_without_metrics(
+    mocker, mock_msg, mock_app, get_statuses_by_request_id
+):
     payload_dump = json.loads(mock_msg.value)
     mocker.patch('app.evaluate_status_metrics', AsyncMock())
     mocker.patch('bakery.BAKERY', {'BY_DATE': get_statuses_by_request_id})
@@ -25,7 +26,9 @@ async def test_process_payload_status_without_metrics(mocker, mock_msg, mock_app
     assert payload is not None
 
 
-async def test_process_payload_status_with_metrics(mocker, mock_msg, mock_app, get_statuses_by_request_id):
+async def test_process_payload_status_with_metrics(
+    mocker, mock_msg, mock_app, get_statuses_by_request_id
+):
     payload_dump = json.loads(mock_msg.value)
     mocker.patch('bakery.BAKERY', {'BY_DATE': get_statuses_by_request_id})
     await process_payload_status([mock_msg])
@@ -74,7 +77,11 @@ async def test_evaluate_status_metrics_with_valid_input(mocker, mock_payload, mo
     await evaluate_status_metrics(**mock_kwargs)
     assert REGISTRY.get_sample_value(
         'payload_tracker_service_status_counter_total',
-        {'service_name': mock_kwargs['service'], 'status': mock_kwargs['status'], 'source_name': mock_kwargs['source']}
+        {
+            'service_name': mock_kwargs['service'],
+            'status': mock_kwargs['status'],
+            'source_name': mock_kwargs['source']
+        }
     ) == 1
     REGISTRY.get_sample_value(
         'payload_tracker_upload_time_by_service_elapsed_created',

@@ -29,27 +29,29 @@ REDIS_RETRY_MAX = 3
 REDIS_COUNT_TIMEOUT = 5
 MAX_ENDPOINT_CHECK_RETRY = 3
 ENDPOINT_CHECK_TIMEOUT = 5
-OPTIONS={'page_size': 1}
+OPTIONS = {'page_size': 1}
 
 
 async def check_endpoint(host, port, endpoint, timeout=300, options={}):
     for count in range(0, MAX_ENDPOINT_CHECK_RETRY):
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
-                res = await session.get(f'http://{host}:{port}{endpoint}?{"&".join([f"{k}={v}" for k, v in options.items()])}')
+            async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=timeout)
+            ) as session:
+                res = await session.get(f'http://{host}:{port}{endpoint}?{"&".join([f"{k}={v}" for k, v in options.items()])}')  # noqa
                 if res.status == 200:
                     try:
                         return await res.json()
                     except:
-                        # we simply return here since the output of this function is only applicable for the
-                        # /v1/payload:request_id endpoint which will always be json decodable
+                        # we simply return here since the output of this function is only applicable
+                        # for /v1/payload:request_id which will always be json decodable
                         return
                 else:
                     raise Exception(f'http://{host}:{port}{endpoint} returned status {res.status}')
         except:
             if count == MAX_ENDPOINT_CHECK_RETRY - 1:
                 err = traceback.format_exc()
-                logger.error(f'Error raised for endpoint {endpoint}?{"&".join([f"{k}={v}" for k, v in options.items()])}: {err}')
+                logger.error(f'Error raised for endpoint {endpoint}?{"&".join([f"{k}={v}" for k, v in options.items()])}: {err}')  # noqa
                 raise Exception(err)
             await asyncio.sleep(ENDPOINT_CHECK_TIMEOUT)
 
@@ -109,7 +111,7 @@ async def search(*args, **kwargs):
 
     # check responsiveness of /payloads
     logger.debug('Checking connection to /v1/payloads...')
-    request_id = None #for use with /payloads:request_id
+    request_id = None  # for use with /payloads:request_id
     try:
         payloads = await check_endpoint('localhost', API_PORT, '/v1/payloads',
                 timeout=TIMEOUT_SECONDS, options=OPTIONS)
@@ -123,12 +125,13 @@ async def search(*args, **kwargs):
     if request_id:
         logger.debug('Checking connection to /v1/payloads/:request_id...')
         try:
-            await check_endpoint('localhost', API_PORT, f'/v1/payloads/{request_id}', timeout=TIMEOUT_SECONDS)
+            await check_endpoint(
+                'localhost', API_PORT, f'/v1/payloads/{request_id}', timeout=TIMEOUT_SECONDS)
         except Exception as err:
             return responses.failed(f'{FAILED_MSG} with error: {err}')
 
     # check responsiveness of additional endpoints on API_PORT
-    logger.debug(f'Checking connection to /v1/statuses...')
+    logger.debug('Checking connection to /v1/statuses...')
     try:
         await check_endpoint('localhost', API_PORT, '/v1/statuses',
             timeout=TIMEOUT_SECONDS, options={**OPTIONS, **{
@@ -140,7 +143,7 @@ async def search(*args, **kwargs):
 
     if not DISABLE_PROMETHEUS:
         # check endpoints on PROMETHEUS_PORT for valid responses
-        logger.debug(f'Checking connection to /metrics...')
+        logger.debug('Checking connection to /metrics...')
         try:
             await check_endpoint('localhost', PROMETHEUS_PORT, '/metrics')
         except Exception as err:
