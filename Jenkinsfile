@@ -28,6 +28,16 @@ pipelineUtils.runIfMasterOrPullReq {
 def runStages() {
     podTemplate(label: podLabel, cloud: "openshift", containers: [
         containerTemplate(
+            name: 'payload-tracker',
+            image: 'python:3.6.5',
+            ttyEnabled: true,
+            command: 'cat',
+            resourceRequestCpu: '300m',
+            resourceLimitCpu: '1000m',
+            resourceRequestMemory: '512Mi',
+            resourceLimitMemory: '1Gi'
+        ),
+        containerTemplate(
             name: dbContainer,
             image: "docker-registry.default.svc:5000/buildfactory/payload-tracker-db:latest",
             ttyEnabled: true,
@@ -55,40 +65,44 @@ def runStages() {
         )
     ]) {
         node (podLabel) {
-            // check out source again to get it in this node's workspace
-            scmVars = checkout scm
-
-            stage('Pip install') {
-                pythonUtils.runPipenvInstall(scmVars: scmVars, installPipenv: false)
-            }
-
-            stage('Lint') {
-                pythonUtils.runLintCheck()
-            }
-
-            stage('UnitTest') {
-                withEnv([
-                    'DB_HOST': dbContainer,
-                    'REDIS_HOST': redisContainer
-                ]) {
-                    gitUtils.withStatusContext("unittest") {
-                        sh (
-                            "${pipelineVars.userPath}/pipenv run python -m pytest " +
-                                "--log-cli-level=debug --junitxml=junit.xml --cov-config=.coveragerc " +
-                                "--cov=. --cov-report html tests/ -s -v"
-                        )
+            container("payload-tracker") {
+                stage('Setup environment') {
+                    withStatusContext.custom('setup') {
+                        // check out source again to get it in this node's workspace
+                        scmVars = checkout scm
+                        pythonUtils.runPipenvInstall(scmVars: scmVars)
+                        sh "${pipelineVars.userPath}/pipenv run alembic upgrade head"
                     }
-                    junit 'junit.xml'
                 }
-            }
 
-            stage('Code coverage') {
-                pythonUtils.checkCoverage(threshold: codecovThreshold)
-            }
+                stage('Lint') {
+                    pythonUtils.runLintCheck()
+                }
 
-            if (currentBuild.currentResult == 'SUCCESS') {
-                if (env.BRANCH_NAME == 'master') {
-                    // Stages to run specifically if master branch was updated
+                stage('UnitTest') {
+                    withEnv([
+                        'DB_HOST': dbContainer,
+                        'REDIS_HOST': redisContainer
+                    ]) {
+                        gitUtils.withStatusContext("unittest") {
+                            sh (
+                                "${pipelineVars.userPath}/pipenv run python -m pytest " +
+                                    "--log-cli-level=debug --junitxml=junit.xml --cov-config=.coveragerc " +
+                                    "--cov=. --cov-report html tests/ -s -v"
+                            )
+                        }
+                        junit 'junit.xml'
+                    }
+                }
+
+                stage('Code coverage') {
+                    pythonUtils.checkCoverage(threshold: codecovThreshold)
+                }
+
+                if (currentBuild.currentResult == 'SUCCESS') {
+                    if (env.BRANCH_NAME == 'master') {
+                        // Stages to run specifically if master branch was updated
+                    }
                 }
             }
         }
