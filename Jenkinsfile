@@ -19,12 +19,9 @@ dbContainer = "payload-tracker-db"
 redisContainer = "payload-tracker-redis"
 
 
-node {
-    pipelineUtils.cancelPriorBuilds()
-
-    pipelineUtils.runIfMasterOrPullReq {
-        runStages()
-    }
+pipelineUtils.cancelPriorBuilds()
+pipelineUtils.runIfMasterOrPullReq {
+    runStages()
 }
 
 
