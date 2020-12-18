@@ -67,7 +67,7 @@ def runStages() {
         node (podLabel) {
             container("payload-tracker") {
                 stage('Setup environment') {
-                    withStatusContext.custom('setup') {
+                    gitUtils.withStatusContext('setup') {
                         // check out source again to get it in this node's workspace
                         scmVars = checkout scm
                         pythonUtils.runPipenvInstall(scmVars: scmVars)
