@@ -48,7 +48,7 @@ def runStages() {
         ),
         containerTemplate(
             name: redisContainer,
-            image: "docker-registry.default.svc:5000/buildfactory/payload-tracker-redis:latest",
+            image: "docker-registry.default.svc:5000/buildfactory/redis-5:latest",
             ttyEnabled: true,
             resourceRequestCpu: '50m',
             resourceLimitCpu: '200m',
