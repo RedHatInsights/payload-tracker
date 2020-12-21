@@ -56,7 +56,7 @@ async def evaluate_status_metrics(**kwargs):
             retries += 1
     except:
         logger.error(traceback.format_exc())
-        return
+        raise
 
     def calculate_service_time_by_source(service, source):
         times = [values['date'] for values in data[service] if values['source'] == source]
@@ -71,6 +71,7 @@ async def evaluate_status_metrics(**kwargs):
 
     if data:
         try:
+            logger.debug(f"Processing metrics with the following data: {data}")
             # TODO: Add functionality for UPLOAD_TIME_ELAPSED prometheus metric
             SERVICE_STATUS_COUNTER.labels(
                 service_name=service, status=status, source_name=source).inc()
@@ -81,7 +82,7 @@ async def evaluate_status_metrics(**kwargs):
                 ).observe(calculate_service_time_by_source(service, source))
         except:
             logger.error(traceback.format_exc())
-            return
+            raise
 
 
 async def process_payload_status(json_msgs):
@@ -133,6 +134,16 @@ async def process_payload_status(json_msgs):
                     sanitized_payload[key] = data[key]
 
             sanitized_payload_status = {}
+
+            if 'date' in data:
+                try:
+                    sanitized_payload_status['date'] = default_tzinfo(parser.parse(data['date']), tzutc()).astimezone(tzutc())
+                    data['date'] = sanitized_payload_status['date']
+                except:
+                    the_error = traceback.format_exc()
+                    logger.error(f"Error parsing date: {the_error}")
+                    MSG_COUNT_BY_PROCESSING_STATUS.labels(status="error").inc()
+                    continue
 
             def get_payload():
                 if USE_REDIS:
@@ -240,16 +251,6 @@ async def process_payload_status(json_msgs):
 
             if 'status_msg' in data:
                 sanitized_payload_status['status_msg'] = data['status_msg']
-
-            if 'date' in data:
-                try:
-                    sanitized_payload_status['date'] = default_tzinfo(
-                        parser.parse(data['date']), tzutc()).astimezone(tzutc())
-                except:
-                    the_error = traceback.format_exc()
-                    logger.error(f"Error parsing date: {the_error}")
-                    MSG_COUNT_BY_PROCESSING_STATUS.labels(status="error").inc()
-                    continue
 
             # Increment Prometheus Metrics
             # In order to scale up pods we rely on redis to calculate metrics
