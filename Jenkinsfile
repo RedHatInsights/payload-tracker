@@ -7,7 +7,7 @@
 podLabel = "payload-tracker-test-${UUID.randomUUID().toString()}"
 
 // Code coverage failure threshold
-codecovThreshold = 80
+codecovThreshold = 70
 
 // Test db settings
 dbUser = "payloadtracker"
