@@ -56,7 +56,7 @@ async def evaluate_status_metrics(**kwargs):
             retries += 1
     except:
         logger.error(traceback.format_exc())
-        return
+        raise
 
     def calculate_service_time_by_source(service, source):
         times = [values['date'] for values in data[service] if values['source'] == source]
@@ -81,7 +81,7 @@ async def evaluate_status_metrics(**kwargs):
                 ).observe(calculate_service_time_by_source(service, source))
         except:
             logger.error(traceback.format_exc())
-            return
+            raise
 
 
 async def process_payload_status(json_msgs):
