@@ -94,7 +94,7 @@ async def search(*args, **kwargs):
             statuses_query = statuses_query.order_by(sort_func(kwargs['sort_by']))
 
         # compute count
-        statuses_count = await statuses_count.gino.scalar()
+        statuses_count = await conn.scalar(statuses_count)
 
         # Compile set of statuses from the database
         statuses = await conn.all(statuses_query.select_from(
