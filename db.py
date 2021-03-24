@@ -27,7 +27,7 @@ async def disconnect():
 class Payload(db.Model):
     __tablename__ = 'payloads'
 
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     request_id = db.Column(db.Unicode)
     account = db.Column(db.Unicode)
     inventory_id = db.Column(db.Unicode)
@@ -41,8 +41,8 @@ class Payload(db.Model):
 class PayloadStatus(db.Model):
     __tablename__ = 'payload_statuses'
 
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    payload_id = db.Column(db.Integer, db.ForeignKey('payloads.id', ondelete='CASCADE'))
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    payload_id = db.Column(db.BigInteger, db.ForeignKey('payloads.id', ondelete='CASCADE'))
     service_id = db.Column(db.Integer, db.ForeignKey('services.id'))
     source_id = db.Column(db.Integer, db.ForeignKey('sources.id'))
     status_id = db.Column(db.Unicode, db.ForeignKey('statuses.id'))
