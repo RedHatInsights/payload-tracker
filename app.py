@@ -275,18 +275,18 @@ async def process_payload_status(json_msgs):
             try:
                 await insert_status(sanitized_payload_status)
             except Exception as err:
-                logger.debug(f'Failed to insert PayloadStatus with ERROR: {err}')
+                logger.debug(f'Failed to insert sanitized PayloadStatus with ERROR: {err}')
                 # We assume there is no partition. If there is a further error, try reinsertion
                 try:
                     date = sanitized_payload_status['date']
                     await db.bind.scalar(f'SELECT create_partition(\'{date}\'::DATE, \'{date}\'::DATE + INTERVAL \'1 DAY\');')  # noqa
                     await insert_status(sanitized_payload_status)
                 except Exception as err:
-                    logger.debug(f'Failed to insert PayloadStatus with ERROR: {err}')
+                    logger.debug(f'Failed to create partion and re-insert sanitized PayloadStatus with ERROR: {err}')
                     try:
                         await insert_status(sanitized_payload_status)
                     except Exception as err:
-                        logger.error(f'Failed to insert PayloadStatus with ERROR: {err}')
+                        logger.error(f'Failed final attempt to re-insert PayloadStatus with ERROR: {err}')
                         MSG_COUNT_BY_PROCESSING_STATUS.labels(status="error").inc()
                         continue
             MSG_COUNT_BY_PROCESSING_STATUS.labels(status="success").inc()
