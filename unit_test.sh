@@ -1,18 +1,24 @@
 #!/bin/bash
 
+cd $APP_ROOT
+
 #-------
-# setup pipenv
+# setup venv for unit tests
 #-------
-pip3 install --user pipenv
+
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip setuptools wheel pipenv
 pipenv install
 
 
 pipenv run tests
-if [ $? != 0 ]; then
-    exit 1
-fi
-
 pipenv run linter
-if [ $? != 0 ]; then
-    exit 1
-fi
+
+result=$?
+
+deactivate
+
+cd -
+
+exit $result
