@@ -3,7 +3,7 @@
 #-------
 # setup pipenv
 #-------
-pip install pipenv
+pip3 install pipenv
 pipenv install
 
 
