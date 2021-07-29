@@ -10,6 +10,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip setuptools wheel pipenv
 pipenv install --dev 
+pipenv install pytest flake8
 
 
 pipenv run tests
