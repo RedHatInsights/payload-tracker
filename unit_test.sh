@@ -9,7 +9,7 @@ cd $APP_ROOT
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip setuptools wheel pipenv
-pipenv install
+pipenv install --dev 
 
 
 pipenv run tests
