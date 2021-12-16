@@ -198,6 +198,16 @@ objects:
           - mountPath: /opt/certs/
             name: kafka-cacert
             readOnly: true
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        serviceAccount: payload-tracker
+        serviceAccountName: payload-tracker
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - name: kafka-cacert
+          secret:
+            secretName: kafka-ca
         dnsPolicy: ClusterFirst
         imagePullSecrets:
         - name: quay-cloudservices-pull
