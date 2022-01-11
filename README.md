@@ -1,3 +1,9 @@
+NOTICE
+======
+
+**This project has been archived in favor of [Payload Tracker (Go Edition)](https://www.github.com/RedHatInsights/payload-tracker-go)**
+
+
 Payload Tracker
 ===========================================
 
